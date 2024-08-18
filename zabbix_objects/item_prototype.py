@@ -77,8 +77,8 @@ class ItemPrototype:
         else:
             return '0'
 
-    def generate_yaml_dict(self) -> Dict[str, Any]:
-        item_prototype_yaml = {
+    def generate_json_dict(self) -> Dict[str, Any]:
+        item_prototype_json = {
             'description': self.description,
             'history': self.history,
             'key': self.key,
@@ -91,6 +91,6 @@ class ItemPrototype:
         }
 
         # Removes None/null values
-        item_prototype_yaml = {k: v for k, v in item_prototype_yaml.items() if v is not None}
+        item_prototype_json = {k: v for k, v in item_prototype_json.items() if v is not None}
 
-        return item_prototype_yaml
+        return item_prototype_json

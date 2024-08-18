@@ -78,8 +78,8 @@ class SNMPItem:
         else:
             return '0'
 
-    def generate_yaml_dict(self) -> Dict[str, Any]:
-        snmp_item_yaml = {
+    def generate_json_dict(self) -> Dict[str, Any]:
+        snmp_item_json = {
             'description': self.description,
             'history': self.history,
             'delay': self.delay,
@@ -93,6 +93,6 @@ class SNMPItem:
         }
 
         # Removes None/null values
-        snmp_item_yaml = {k: v for k, v in snmp_item_yaml.items() if v is not None}
+        snmp_item_json = {k: v for k, v in snmp_item_json.items() if v is not None}
 
-        return snmp_item_yaml
+        return snmp_item_json

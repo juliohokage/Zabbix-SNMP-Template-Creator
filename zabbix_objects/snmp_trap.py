@@ -72,8 +72,8 @@ class SNMPTrap:
                 }
         return default_trigger
 
-    def generate_yaml_dict(self) -> Dict[str, Any]:
-        snmp_trap_yaml = {
+    def generate_json_dict(self) -> Dict[str, Any]:
+        snmp_trap_json = {
             'delay': self.delay,
             'description': self.description,
             'history': self.history,
@@ -87,6 +87,6 @@ class SNMPTrap:
         }
 
         # Removes None/null values
-        snmp_trap_yaml = {k: v for k, v in snmp_trap_yaml.items() if v is not None}
+        snmp_trap_json = {k: v for k, v in snmp_trap_json.items() if v is not None}
 
-        return snmp_trap_yaml
+        return snmp_trap_json

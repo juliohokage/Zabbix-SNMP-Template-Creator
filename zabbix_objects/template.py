@@ -56,8 +56,8 @@ class Template:
     def _preprocess_description(self) -> str:
         return f"Template {self.name}\nMIB(s) used:" + "\n".join(f"- {mib}" for mib in self.mib_modules)
       
-    def generate_yaml_dict(self) -> Dict[str, Any]:
-        inner_yaml_structure = {
+    def generate_json_dict(self) -> Dict[str, Any]:
+        inner_json_structure = {
             'uuid': str(uuid.uuid4().hex),
             'template': self.name,
             'name': self.name,
@@ -66,11 +66,11 @@ class Template:
             'items': []
         }
         
-        template_tag_yaml = [ tag.generate_yaml_dict() for tag in self.template_tags]
-        if template_tag_yaml:
-            inner_yaml_structure['tags'] = template_tag_yaml
+        template_tag_json = [ tag.generate_json_dict() for tag in self.template_tags]
+        if template_tag_json:
+            inner_json_structure['tags'] = template_tag_json
 
-        outer_yaml_structure = {
+        outer_json_structure = {
             'zabbix_export': {
                 'version': '7.0',
                 'template_groups': [
@@ -79,8 +79,8 @@ class Template:
                         'name': self.group
                     }
                 ],
-                'templates': [inner_yaml_structure]
+                'templates': [inner_json_structure]
             }
         }
 
-        return outer_yaml_structure
+        return outer_json_structure

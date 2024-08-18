@@ -75,8 +75,8 @@ class SNMPWalkItem:
     def generate_snmp_walk_items(cls, snmp_items: List[List[Dict[str, Any]]], template_name: str) -> List['SNMPWalkItem']:
         return [SNMPWalkItem(item, template_name) for item in snmp_items]
 
-    def generate_yaml_dict(self) -> Dict[str, Any]:
-        snmp_item_yaml = {
+    def generate_json_dict(self) -> Dict[str, Any]:
+        snmp_item_json = {
             'uuid': uuid.uuid4().hex,
             'description': self.description,
             'history': self.history,
@@ -90,6 +90,6 @@ class SNMPWalkItem:
         }
 
         # Removes None/null values
-        snmp_item_yaml = {k: v for k, v in snmp_item_yaml.items() if v is not None}
+        snmp_item_json = {k: v for k, v in snmp_item_json.items() if v is not None}
 
-        return snmp_item_yaml
+        return snmp_item_json

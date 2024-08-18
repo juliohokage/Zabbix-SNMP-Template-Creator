@@ -29,14 +29,20 @@ class DiscoveryRule:
 
     @classmethod
     def generate_discovery_rules(cls, discovery_rule_table: Dict[str, List[Dict[str, Any]]], template_name: str) -> List['DiscoveryRule']:
-        return [DiscoveryRule(table_data, template_name) for _,table_data in discovery_rule_table.items()]
+        return [DiscoveryRule(table_data, template_name) for _, table_data in discovery_rule_table.items()]
 
     def _generate_item_prototypes(self, master_item_key: str, discovery_rule_table: List[Dict[str, Any]]) -> List[ItemPrototype]:
         # Start at 2nd index in DiscoveryRuleTable b/c the 1st entry will always be the master item
         return [ItemPrototype(entry, master_item_key) for entry in discovery_rule_table[1:]]
 
-    def generate_yaml_dict(self) -> Dict[str, Any]:
-        discovery_rule_yaml = {
+    def generate_json_dict(self) -> Dict[str, Any]:
+        """
+        Generate a dictionary that represents the discovery rule in JSON format.
+        
+        Returns:
+            Dict[str, Any]: JSON-compatible dictionary representation of the discovery rule.
+        """
+        discovery_rule_json = {
             'description': self.description,
             'key': self.key,
             'master_item': {'key': self.master_item},
@@ -45,12 +51,12 @@ class DiscoveryRule:
             'uuid': uuid.uuid4().hex,
         }
 
-        item_prototype_yaml = [ item_prototype.generate_yaml_dict() for item_prototype in self.item_prototypes]
+        item_prototype_json = [item_prototype.generate_json_dict() for item_prototype in self.item_prototypes]
 
-        if item_prototype_yaml:
-            discovery_rule_yaml['item_prototypes'] = item_prototype_yaml
+        if item_prototype_json:
+            discovery_rule_json['item_prototypes'] = item_prototype_json
         
         # Removes None/null values
-        discovery_rule_yaml = {k: v for k, v in discovery_rule_yaml.items() if v is not None}
+        discovery_rule_json = {k: v for k, v in discovery_rule_json.items() if v is not None}
         
-        return discovery_rule_yaml
+        return discovery_rule_json

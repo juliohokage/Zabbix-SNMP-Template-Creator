@@ -30,10 +30,10 @@ class Tag:
         value = str(value).strip()
         return value.lower().replace(" ", "_")
 
-    def generate_yaml_dict(self) -> Dict[str, str]:
-        tag_yaml ={
+    def generate_json_dict(self) -> Dict[str, str]:
+        tag_json ={
             'tag': self.key,
             'value': self.value
         }
         
-        return tag_yaml
+        return tag_json

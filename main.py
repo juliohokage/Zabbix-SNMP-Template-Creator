@@ -1,52 +1,52 @@
 import os
 import sys
 import time
-import yaml
+import json
 from typing import Literal
 
 from zabbix_objects.template import Template
 from utils.mib_validator import MIBValidator
 
-def create_all_yaml(template: Template, include_items: bool = True, include_traps: bool = True, include_discovery_rules: bool = True) -> Literal['YAMLStr']:
+def create_all_json(template: Template, include_items: bool = True, include_traps: bool = True, include_discovery_rules: bool = True) -> str:
     """
-    Create a YAML representation of the template and its components.
+    Create a JSON representation of the template and its components.
 
     Args:
-        template (Template): The Template object to convert to YAML.
-        include_items (bool): Whether to include SNMP items in the YAML.
-        include_traps (bool): Whether to include SNMP traps in the YAML.
-        include_discovery_rules (bool): Whether to include discovery rules in the YAML.
+        template (Template): The Template object to convert to JSON.
+        include_items (bool): Whether to include SNMP items in the JSON.
+        include_traps (bool): Whether to include SNMP traps in the JSON.
+        include_discovery_rules (bool): Whether to include discovery rules in the JSON.
 
     Returns:
-        str: A YAML string representation of the template and its components.
+        str: A JSON string representation of the template and its components.
     """
-    template_yaml = template.generate_yaml_dict()
+    template_json = template.generate_json_dict()  # Assuming this method returns a dict
 
     if include_items and template.snmp_items:
-        snmp_item_yaml = [ snmp_item.generate_yaml_dict() for snmp_item in template.snmp_items]
-        template_yaml['zabbix_export']['templates'][0]['items'].extend(snmp_item_yaml)
+        snmp_item_json = [snmp_item.generate_json_dict() for snmp_item in template.snmp_items]
+        template_json['zabbix_export']['templates'][0]['items'].extend(snmp_item_json)
     
     if include_traps and template.snmp_traps:
-        snmp_trap_yaml = [ snmp_trap.generate_yaml_dict() for snmp_trap in template.snmp_traps]
-        template_yaml['zabbix_export']['templates'][0]['items'].extend(snmp_trap_yaml)
+        snmp_trap_json = [snmp_trap.generate_json_dict() for snmp_trap in template.snmp_traps]
+        template_json['zabbix_export']['templates'][0]['items'].extend(snmp_trap_json)
     
     if include_discovery_rules and template.discovery_rules:
-        discovery_rule_yaml = [ discovery_rule.generate_yaml_dict() for discovery_rule in template.discovery_rules]
-        if discovery_rule_yaml:
-            template_yaml['zabbix_export']['templates'][0]['discovery_rules'] = discovery_rule_yaml
+        discovery_rule_json = [discovery_rule.generate_json_dict() for discovery_rule in template.discovery_rules]
+        if discovery_rule_json:
+            template_json['zabbix_export']['templates'][0]['discovery_rules'] = discovery_rule_json
 
-    return yaml.dump(template_yaml, default_flow_style=False, sort_keys=False)
+    return json.dumps(template_json, indent=4, sort_keys=False)
 
 def main() -> None:
     """
-    Main function to process an Excel file and generate a Zabbix template YAML.
+    Main function to process an Excel file and generate a Zabbix template JSON.
 
     This function:
     1. Validates the command-line arguments
     2. Extracts data from the provided Excel file
     3. Creates a Template object
-    4. Generates a YAML representation of the template
-    5. Writes the YAML to a file
+    4. Generates a JSON representation of the template
+    5. Writes the JSON to a file
     """
     if len(sys.argv) < 2:
         print("Usage: python main.py <excel_file_path>")
@@ -64,13 +64,13 @@ def main() -> None:
     print("Creating Template...")
     template = Template(template_info_json, snmp_items_json_list, snmp_traps_json_list, discovery_rule_tables)
 
-    print("Creating YAML...")
-    yaml_template = create_all_yaml(template)
+    print("Creating JSON...")
+    json_template = create_all_json(template)
 
-    print("Writing YAML to file...")
+    print("Writing JSON to file...")
     timestamp = time.strftime('%Y%m%d_%H%M%S')
     output_dir = './created_templates'
-    output_file = f'{output_dir}/{timestamp} {template.name} Template.yaml'
+    output_file = f'{output_dir}/{timestamp} {template.name} Template.json'
 
     # Check if the directory exists, if not, create it
     if not os.path.exists(output_dir):
@@ -78,9 +78,9 @@ def main() -> None:
         print(f"Created directory: {output_dir}")
 
     with open(output_file, 'w') as f:
-        f.write(yaml_template)
+        f.write(json_template)
 
-    print(f"YAML template saved as '{output_file}'")
+    print(f"JSON template saved as '{output_file}'")
     print("Process completed successfully!")
 
 if __name__ == "__main__":
