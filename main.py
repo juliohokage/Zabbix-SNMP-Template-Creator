@@ -98,6 +98,12 @@ For more information, visit: https://github.com/Galileo-Suite/Zabbix-SNMP-Templa
     )
 
     parser.add_argument(
+        '--no-triggers',
+        action='store_true',
+        help='Disable automatic trigger generation'
+    )
+
+    parser.add_argument(
         '-v', '--version',
         action='version',
         version='Zabbix SNMP Template Generator 1.0.0'
@@ -130,10 +136,12 @@ def main() -> None:
 
     try:
         logger.info("Extracting data from Excel...")
-        snmp_items_json_list, snmp_traps_json_list, template_info_json, discovery_rule_tables = MIBValidator.extract_from_excel(args.excel_file)
+        snmp_items_json_list, snmp_traps_json_list, template_info_json, discovery_rule_tables, trigger_overrides = MIBValidator.extract_from_excel(args.excel_file)
 
         logger.info("Creating Template...")
-        template = Template(template_info_json, snmp_items_json_list, snmp_traps_json_list, discovery_rule_tables)
+        generate_triggers = not args.no_triggers
+        template = Template(template_info_json, snmp_items_json_list, snmp_traps_json_list, discovery_rule_tables,
+                          generate_triggers=generate_triggers, trigger_overrides=trigger_overrides)
 
         logger.info("Creating JSON...")
         json_template = create_all_json(

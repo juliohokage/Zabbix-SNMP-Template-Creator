@@ -15,7 +15,7 @@ class MIBValidator:
     """
 
     @classmethod
-    def extract_from_excel(cls, excel_file: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, Any], Dict[str, List[Dict[str, Any]]]]:
+    def extract_from_excel(cls, excel_file: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, Any], Dict[str, List[Dict[str, Any]]], Dict[str, Dict[str, Any]]]:
         """
         Extract and validate data from an Excel file.
         This is a factory method that separates the creation of the Template object from its source.
@@ -30,6 +30,7 @@ class MIBValidator:
             - List of preprocessed SNMP traps
             - Template information dictionary
             - Dictionary of discovery rule tables
+            - Dictionary of trigger overrides (optional, may be empty)
 
         Raises:
             FileNotFoundError: If the Excel file doesn't exist.
@@ -83,7 +84,10 @@ class MIBValidator:
         preprocessed_snmp_traps = cls._preprocess_and_validate(snmp_traps_json_list, mib_data_json_list, "SNMP Traps")
         discovery_rule_tables = cls._collect_discovery_rule_tables(mib_data_json_list)
 
-        return preprocessed_snmp_items, preprocessed_snmp_traps, template_info_json, discovery_rule_tables
+        # Extract optional trigger overrides
+        trigger_overrides = cls._extract_trigger_overrides(all_sheets_data)
+
+        return preprocessed_snmp_items, preprocessed_snmp_traps, template_info_json, discovery_rule_tables, trigger_overrides
 
     @classmethod
     def _preprocess_and_validate(cls, input_data: List[Dict[str, Any]], mib_data: List[Dict[str, Any]], entity_type: str) -> List[Dict[str, Any]]:
@@ -340,6 +344,58 @@ class MIBValidator:
                            f"({len(index_oids)} indices + {len(metric_chunk)} metrics)")
 
         return split_tables
+
+    @classmethod
+    def _extract_trigger_overrides(cls, all_sheets_data: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Dict[str, Any]]:
+        """
+        Extract optional trigger overrides from "Triggers" sheet.
+
+        Args:
+            all_sheets_data: Dictionary of all Excel sheets
+
+        Returns:
+            Dictionary mapping OID/Item Name to trigger configuration
+            Example: {
+                'ifOperStatus': {
+                    'expression': 'count(#3,"ne","2")>=2',
+                    'severity': 'WARNING',
+                    'description': 'Interface is down',
+                    'enabled': True
+                }
+            }
+        """
+        if "Triggers" not in all_sheets_data:
+            logger.debug("No 'Triggers' sheet found, using auto-generated triggers only")
+            return {}
+
+        triggers_data = all_sheets_data["Triggers"]
+        trigger_overrides = {}
+
+        for row in triggers_data:
+            item_name = row.get('Item Name/OID')
+            if not item_name:
+                continue
+
+            # Skip if all fields are None
+            if all(pd.isna(v) if v is not None else True for k, v in row.items() if k != 'Item Name/OID'):
+                continue
+
+            trigger_config = {
+                'expression': row.get('Expression'),
+                'severity': row.get('Severity', 'AVERAGE'),
+                'description': row.get('Description'),
+                'enabled': row.get('Enabled', True)
+            }
+
+            # Convert enabled to boolean if it's a string
+            if isinstance(trigger_config['enabled'], str):
+                trigger_config['enabled'] = trigger_config['enabled'].upper() in ['TRUE', 'YES', '1']
+
+            trigger_overrides[item_name] = trigger_config
+            logger.debug(f"Loaded trigger override for: {item_name}")
+
+        logger.info(f"Loaded {len(trigger_overrides)} trigger overrides from Excel")
+        return trigger_overrides
 
     @staticmethod
     def _print_results(matched_data: List[Dict[str, Any]], unmatched_data: List[Dict[str, Any]], null_entries: List[Dict[str, Any]], entity_type: str) -> None:

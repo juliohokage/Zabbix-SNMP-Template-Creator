@@ -1,17 +1,24 @@
 import uuid
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from utils.config import SNMP_ITEM, MAX_KEY_LENGTH
 from utils.logger import logger
 from zabbix_objects.base import ZabbixObject
 
 class SNMPItem(ZabbixObject):
-    def __init__(self, item_data: Dict[str, Any], template_name: str):
+    def __init__(self, item_data: Dict[str, Any], template_name: str,
+                 value_mapping_name: Optional[str] = None, enum_data: Optional[Dict] = None,
+                 trigger_config: Optional[Dict] = None):
         self.mib_module = item_data.get('MIB Module')
         self.oid = item_data.get('OID')
         self.raw_description = item_data.get('Description')
         self.raw_name = item_data.get('Name')
         self.raw_type = item_data.get('Type')
+
+        # Store value mapping and trigger config
+        self.value_mapping_name = value_mapping_name
+        self.enum_data = enum_data
+        self.trigger_config = trigger_config
 
         self.delay = SNMP_ITEM.DELAY
         self.history = SNMP_ITEM.HISTORY
@@ -55,6 +62,10 @@ class SNMPItem(ZabbixObject):
             'uuid': uuid.uuid4().hex,
             'value_type': self.value_type,
         }
+
+        # Add value mapping if present
+        if self.value_mapping_name:
+            snmp_item_json['valuemap'] = {'name': self.value_mapping_name}
 
         # Removes None/null values
         snmp_item_json = {k: v for k, v in snmp_item_json.items() if v is not None}

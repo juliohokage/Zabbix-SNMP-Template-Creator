@@ -46,3 +46,9 @@ ITEM_PROTOTYPE=SimpleNamespace(
 DISCOVERY_RULE=SimpleNamespace(
     TYPE="DEPENDENT"
 )
+
+TRIGGER=SimpleNamespace(
+    ENABLED=True,  # Auto-generate triggers by default
+    MANUAL_CLOSE=False,
+    DEFAULT_SEVERITY="AVERAGE"
+)

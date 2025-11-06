@@ -1,12 +1,14 @@
 import uuid
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from utils.config import ITEM_PROTOTYPE, MAX_KEY_LENGTH
 from utils.logger import logger
 from zabbix_objects.base import ZabbixObject
 
 class ItemPrototype(ZabbixObject):
-    def __init__(self, item_data: Dict[str, Any], master_item_key: str, lld_macros: List[Dict[str, str]] = None):
+    def __init__(self, item_data: Dict[str, Any], master_item_key: str, lld_macros: List[Dict[str, str]] = None,
+                 value_mapping_name: Optional[str] = None, enum_data: Optional[Dict] = None,
+                 trigger_config: Optional[Dict] = None):
         self.master_item = master_item_key
         self.mib_module = item_data.get('MIB Module')
         self.oid = item_data.get('OID')
@@ -14,6 +16,11 @@ class ItemPrototype(ZabbixObject):
         self.raw_name = item_data.get('Name')
         self.raw_type = item_data.get('Type')
         self.lld_macros = lld_macros or []
+
+        # Store value mapping and trigger config
+        self.value_mapping_name = value_mapping_name
+        self.enum_data = enum_data
+        self.trigger_config = trigger_config
 
         self.history = ITEM_PROTOTYPE.HISTORY
         self.type = ITEM_PROTOTYPE.TYPE
@@ -71,6 +78,10 @@ class ItemPrototype(ZabbixObject):
             'uuid': uuid.uuid4().hex,
             'value_type': self.value_type,
         }
+
+        # Add value mapping if present
+        if self.value_mapping_name:
+            item_prototype_json['valuemap'] = {'name': self.value_mapping_name}
 
         # Removes None/null values
         item_prototype_json = {k: v for k, v in item_prototype_json.items() if v is not None}
