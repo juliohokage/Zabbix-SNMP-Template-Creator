@@ -2,6 +2,8 @@ import pandas as pd
 from collections import defaultdict
 from typing import List, Dict, Tuple, Any
 from utils.logger import logger
+from utils.index_detector import detect_index_oids
+from utils.config import MAX_OIDS_PER_WALK
 
 class UnmatchedDataError(Exception):
     """Raised when there is unmatched data after validation."""
@@ -221,8 +223,8 @@ class MIBValidator:
 
         return matched_data, unmatched_data
 
-    @staticmethod
-    def _collect_discovery_rule_tables(mib_data_json_list: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+    @classmethod
+    def _collect_discovery_rule_tables(cls, mib_data_json_list: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
         """
         Collect discovery rule tables from MIB data.
 
@@ -259,8 +261,85 @@ class MIBValidator:
         if current_rule:
             discovery_rule_tables[current_rule['OID']] = current_rule['entries']
 
-        logger.info(f'[{len(discovery_rule_tables)}] Discovery Rules found.')
-        return discovery_rule_tables
+        logger.info(f'[{len(discovery_rule_tables)}] Discovery Rules found (before splitting).')
+
+        # Split large tables into sub-discovery rules
+        split_tables = cls._split_large_tables(discovery_rule_tables)
+
+        logger.info(f'[{len(split_tables)}] Discovery Rules after splitting.')
+        return split_tables
+
+    @classmethod
+    def _split_large_tables(cls, discovery_rule_tables: Dict[str, List[Dict[str, Any]]]) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Split large discovery rule tables into multiple sub-tables.
+
+        When a table has too many OIDs to fit in one walk item, this method:
+        1. Detects index/identifier OIDs
+        2. Splits metric OIDs into chunks
+        3. Creates multiple sub-tables, each with indices + chunk of metrics
+
+        Args:
+            discovery_rule_tables: Original discovery rule tables
+
+        Returns:
+            Dictionary with split tables (may have more entries than input)
+        """
+        split_tables = {}
+
+        for table_oid, table_data in discovery_rule_tables.items():
+            if len(table_data) <= 2:  # Just Table and Entry, no columns
+                split_tables[table_oid] = table_data
+                continue
+
+            # Detect index OIDs
+            index_oids = detect_index_oids(table_data)
+            table_name = table_data[0].get('Name', 'Unknown')
+
+            # Calculate how many OIDs (indices + metrics) fit per walk
+            # Reserve space for indices
+            available_slots = MAX_OIDS_PER_WALK - len(index_oids)
+
+            if available_slots <= 0:
+                logger.warning(f"Table {table_name}: Too many index OIDs ({len(index_oids)}), using all as one chunk")
+                split_tables[table_oid] = table_data
+                continue
+
+            # Get metric OIDs (everything after Table, Entry, and indices)
+            # Table[0], Entry[1], then index OIDs, then metrics
+            num_skip = 2 + len(index_oids)
+            metric_oids = table_data[num_skip:]
+
+            # Check if splitting is needed
+            if len(metric_oids) <= available_slots:
+                # No splitting needed, table fits in one walk
+                split_tables[table_oid] = table_data
+                logger.debug(f"Table {table_name}: Fits in one walk ({len(table_data)} total OIDs)")
+                continue
+
+            # Split metrics into chunks
+            metric_chunks = [metric_oids[i:i + available_slots]
+                           for i in range(0, len(metric_oids), available_slots)]
+
+            logger.info(f"Splitting {table_name}: {len(metric_oids)} metrics → {len(metric_chunks)} sub-tables")
+
+            # Create sub-tables
+            for chunk_num, metric_chunk in enumerate(metric_chunks, start=1):
+                # Each sub-table: Table + Entry + index OIDs + metric chunk
+                sub_table = (
+                    [table_data[0], table_data[1]] +  # Table and Entry
+                    index_oids +                        # Index OIDs
+                    metric_chunk                        # Chunk of metrics
+                )
+
+                # Generate unique key for sub-table
+                sub_key = f"{table_oid}_part{chunk_num}"
+                split_tables[sub_key] = sub_table
+
+                logger.debug(f"  Sub-table {chunk_num}: {len(sub_table)} OIDs "
+                           f"({len(index_oids)} indices + {len(metric_chunk)} metrics)")
+
+        return split_tables
 
     @staticmethod
     def _print_results(matched_data: List[Dict[str, Any]], unmatched_data: List[Dict[str, Any]], null_entries: List[Dict[str, Any]], entity_type: str) -> None:

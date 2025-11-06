@@ -1,14 +1,15 @@
 import uuid
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from zabbix_objects.snmp_item import SNMPItem
 from utils.config import SNMP_WALK_ITEM, MAX_KEY_LENGTH, MAX_SNMP_OID_LENGTH
 from utils.logger import logger
 
 class SNMPWalkItem:
-    def __init__(self, discovery_rule_table: List[Dict[str, Any]], template_name: str):
+    def __init__(self, discovery_rule_table: List[Dict[str, Any]], template_name: str, table_key: Optional[str] = None):
         snmp_walk_item_data = discovery_rule_table[0]
         self.mib_module = snmp_walk_item_data['MIB Module']
+        self.table_key = table_key
 
         self.delay = SNMP_WALK_ITEM.DELAY
         self.history = SNMP_WALK_ITEM.HISTORY
@@ -16,7 +17,7 @@ class SNMPWalkItem:
         self.type = SNMP_WALK_ITEM.TYPE
         self.value_type = SNMP_WALK_ITEM.VALUE_TYPE
 
-        self.name = self._generate_name(snmp_walk_item_data)
+        self.name = self._generate_name(snmp_walk_item_data, table_key)
         self.key = self._generate_key(self.name, template_name)
         oid_string = self._parse_oids(discovery_rule_table)
         self.snmp_oid = self._generate_snmp_oid(oid_string)
@@ -46,9 +47,16 @@ class SNMPWalkItem:
         # Skipping Table and Entry
         return f'walk[{oids}]'
 
-    def _generate_name(self, snmp_walk_item: Dict[str, Any]) -> str:
+    def _generate_name(self, snmp_walk_item: Dict[str, Any], table_key: Optional[str] = None) -> str:
         item_name = SNMPItem._preprocess_name(snmp_walk_item.get('Name'))
-        return item_name.replace('Table', 'Walk')
+        item_name = item_name.replace('Table', 'Walk')
+
+        # Check if this is a split table (has _partN suffix)
+        if table_key and '_part' in table_key:
+            part_num = table_key.split('_part')[-1]
+            item_name = f"{item_name} {part_num}"
+
+        return item_name
 
     def _generate_key(self, item_name: str, template_name: str) -> str:
         template_string = template_name.lower().replace(' ', '.')

@@ -3,6 +3,9 @@ from types import SimpleNamespace
 # Constants
 MAX_KEY_LENGTH = 255
 MAX_SNMP_OID_LENGTH = 250
+MAX_OIDS_PER_WALK = 8  # Maximum OIDs per walk item (conservative, leaves buffer)
+MAX_INDEX_OIDS = 3  # Maximum number of index OIDs to include in each walk
+MIN_INDEX_SCORE = 2  # Minimum score to be considered an index
 
 SNMP_ITEM=SimpleNamespace(
     HISTORY="90d",

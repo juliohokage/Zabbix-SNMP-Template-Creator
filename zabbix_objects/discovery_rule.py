@@ -1,15 +1,23 @@
 import uuid
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from zabbix_objects.snmp_walk_item import SNMPWalkItem
 from zabbix_objects.item_prototype import ItemPrototype
 from utils.config import DISCOVERY_RULE
+from utils.index_detector import detect_index_oids, create_lld_macros
 
 class DiscoveryRule:
-    def __init__(self, discovery_rule_table: List[Dict[str, Any]], template_name: str):
+    def __init__(self, discovery_rule_table: List[Dict[str, Any]], template_name: str, table_key: Optional[str] = None):
         self.type = DISCOVERY_RULE.TYPE
+        self.table_key = table_key
 
-        self.snmp_walk_item = SNMPWalkItem(discovery_rule_table, template_name)
+        # Detect index OIDs and create LLD macros
+        self.lld_macros = []
+        if len(discovery_rule_table) > 2:  # Has columns beyond Table and Entry
+            index_oids = detect_index_oids(discovery_rule_table)
+            self.lld_macros = create_lld_macros(index_oids)
+
+        self.snmp_walk_item = SNMPWalkItem(discovery_rule_table, template_name, table_key)
         self.master_item = self.snmp_walk_item.key
         self.item_prototypes = self._generate_item_prototypes(self.master_item, discovery_rule_table)
         self.key = self._generate_key()
@@ -29,16 +37,16 @@ class DiscoveryRule:
 
     @classmethod
     def generate_discovery_rules(cls, discovery_rule_table: Dict[str, List[Dict[str, Any]]], template_name: str) -> List['DiscoveryRule']:
-        return [DiscoveryRule(table_data, template_name) for _, table_data in discovery_rule_table.items()]
+        return [DiscoveryRule(table_data, template_name, table_key) for table_key, table_data in discovery_rule_table.items()]
 
     def _generate_item_prototypes(self, master_item_key: str, discovery_rule_table: List[Dict[str, Any]]) -> List[ItemPrototype]:
         # Start at 2nd index in DiscoveryRuleTable b/c the 1st entry will always be the master item
-        return [ItemPrototype(entry, master_item_key) for entry in discovery_rule_table[1:]]
+        return [ItemPrototype(entry, master_item_key, self.lld_macros) for entry in discovery_rule_table[1:]]
 
     def generate_json_dict(self) -> Dict[str, Any]:
         """
         Generate a dictionary that represents the discovery rule in JSON format.
-        
+
         Returns:
             Dict[str, Any]: JSON-compatible dictionary representation of the discovery rule.
         """
@@ -51,12 +59,16 @@ class DiscoveryRule:
             'uuid': uuid.uuid4().hex,
         }
 
+        # Add LLD macro paths if available
+        if self.lld_macros:
+            discovery_rule_json['lld_macro_paths'] = self.lld_macros
+
         item_prototype_json = [item_prototype.generate_json_dict() for item_prototype in self.item_prototypes]
 
         if item_prototype_json:
             discovery_rule_json['item_prototypes'] = item_prototype_json
-        
+
         # Removes None/null values
         discovery_rule_json = {k: v for k, v in discovery_rule_json.items() if v is not None}
-        
+
         return discovery_rule_json
