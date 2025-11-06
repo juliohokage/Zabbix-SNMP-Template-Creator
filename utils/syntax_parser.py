@@ -31,6 +31,28 @@ class SyntaxParser:
                 ]
             }
             or None if no enums found
+
+        Examples:
+            >>> syntax = "INTEGER {up(1), down(2), testing(3), unknown(4)}"
+            >>> result = SyntaxParser.parse_syntax(syntax)
+            >>> result['base_type']
+            'INTEGER'
+            >>> len(result['enums'])
+            4
+            >>> result['enums'][0]
+            {'value': '1', 'name': 'up'}
+
+            >>> # BITS type
+            >>> syntax = "BITS {ethernetCsmacd(6), iso88025TokenRing(9)}"
+            >>> result = SyntaxParser.parse_syntax(syntax)
+            >>> result['base_type']
+            'BITS'
+
+            >>> # No enums
+            >>> syntax = "INTEGER"
+            >>> result = SyntaxParser.parse_syntax(syntax)
+            >>> result is None
+            True
         """
         if not syntax_string or pd.isna(syntax_string):
             return None
@@ -106,11 +128,47 @@ class SyntaxParser:
         """
         Identify which enum value represents "OK" or "normal" state.
 
+        Uses a three-pass strategy:
+        1. Look for OK keywords (up, ok, normal, active, enabled, etc.)
+        2. If binary enum (2 values), assume first is OK
+        3. Exclude bad keywords and pick first remaining
+
         Args:
             enums: List of enum dicts with 'value' and 'name' keys
 
         Returns:
             The enum value (as string) representing OK state, or None if can't determine
+
+        Examples:
+            >>> # Explicit OK keyword
+            >>> enums = [
+            ...     {'value': '1', 'name': 'up'},
+            ...     {'value': '2', 'name': 'down'},
+            ...     {'value': '3', 'name': 'testing'}
+            ... ]
+            >>> SyntaxParser.identify_ok_value(enums)
+            '1'
+
+            >>> # Binary enum - assumes first is OK
+            >>> enums = [
+            ...     {'value': '1', 'name': 'enabled'},
+            ...     {'value': '2', 'name': 'disabled'}
+            ... ]
+            >>> SyntaxParser.identify_ok_value(enums)
+            '1'
+
+            >>> # Exclude bad keywords
+            >>> enums = [
+            ...     {'value': '1', 'name': 'other'},
+            ...     {'value': '2', 'name': 'ok'},
+            ...     {'value': '3', 'name': 'failed'}
+            ... ]
+            >>> SyntaxParser.identify_ok_value(enums)
+            '2'
+
+            >>> # Empty list
+            >>> SyntaxParser.identify_ok_value([])
+            None
         """
         if not enums:
             return None

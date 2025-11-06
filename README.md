@@ -101,37 +101,323 @@ This automation significantly reduces the time and effort required to set up SNM
 
 ## Input File Specifications
 
-The input Excel file should contain the following sheets:
+The input Excel file must contain **4 required sheets** with specific column structures. See `sample_template_file.xlsx` for a complete example.
 
-1. **Template Information**: Contains general information about the template.
-2. **SNMP Traps**: Contains information about SNMP traps to be monitored.
-3. **SNMP Items**: Contains information about SNMP items to be monitored.
-4. **MIB Data**: Contains the MIB information for the device.
+### Sheet 1: Template Information
 
-Each sheet should have the following columns:
+**Purpose**: Define template metadata, groups, macros, and tags.
 
-- **SNMP Items** and **SNMP Traps**:
+**Required Columns**:
 
-  - OID
-  - Name
+| Column | Description | Example |
+|--------|-------------|---------|
+| Group | Template group in Zabbix | `Templates/Network Devices` |
+| Macros | Template macros (optional) | `{$SNMP_COMMUNITY}=public` |
+| Manufacturer | Device manufacturer | `Cisco` |
+| Model | Device model | `Catalyst 3750` |
+| Tags | Template tags | `Application:SNMP` |
+| Device | Device type/category | `Switch` |
 
-- **Template Information**:
+**Example Row**:
+```
+Group: Templates/Network Devices/Cisco
+Macros: {$SNMP_COMMUNITY}=public
+Manufacturer: Cisco
+Model: Catalyst 3750
+Tags: Application:SNMP, Component:Network
+Device: Switch
+```
 
-  - Group
-  - Macros
-  - Manufacturer
-  - Model
-  - Tags
-  - Device
+**Notes**:
+- Only the **first data row** is used (row 2, after header)
+- Multiple tags can be comma-separated
+- Macros are optional but recommended
 
-- **MIB Data**:
-  - MIB Module
-  - OID
-  - Name
-  - Description
-  - Type
+---
 
-Ensure that your Excel file follows this structure for the script to work correctly.
+### Sheet 2: SNMP Items
+
+**Purpose**: Define which SNMP OIDs to monitor as individual items.
+
+**Required Columns**:
+
+| Column | Description | Example |
+|--------|-------------|---------|
+| OID | SNMP OID to monitor | `1.3.6.1.2.1.1.3.0` |
+| Name | Item name (must match MIB Data) | `sysUpTime` |
+
+**Example Rows**:
+```
+OID                    | Name
+1.3.6.1.2.1.1.3.0     | sysUpTime
+1.3.6.1.2.1.1.5.0     | sysName
+1.3.6.1.2.1.1.1.0     | sysDescr
+```
+
+**Validation Rules**:
+- Each OID or Name **must exist** in the MIB Data sheet
+- Matching is done by OID first, then by Name if OID doesn't match
+- Unmatched items will cause `UnmatchedDataError`
+
+**What Happens**:
+- Creates SNMP item in Zabbix template
+- Automatically determines value type from MIB Type
+- Generates unique item key: `{template-name}.{item-name}.get`
+- Creates trigger if pattern matches (CPU, memory, status, etc.)
+- Creates value mapping if MIB has enum values
+
+---
+
+### Sheet 3: SNMP Traps
+
+**Purpose**: Define SNMP traps to monitor.
+
+**Required Columns**:
+
+| Column | Description | Example |
+|--------|-------------|---------|
+| OID | Trap OID | `1.3.6.1.4.1.9.9.41.2.0.1` |
+| Name | Trap name (must match MIB Data) | `ciscoEnvMonShutdownNotification` |
+
+**Example Rows**:
+```
+OID                        | Name
+1.3.6.1.4.1.9.9.41.2.0.1  | ciscoEnvMonShutdownNotification
+1.3.6.1.4.1.9.9.41.2.0.2  | ciscoEnvMonVoltageNotification
+```
+
+**Validation Rules**:
+- Same matching rules as SNMP Items
+- Must exist in MIB Data sheet
+
+**What Happens**:
+- Creates SNMP trap item with key: `snmptrap[{trap-name}]`
+- Uses TEXT value type
+- 7-day history retention
+
+---
+
+### Sheet 4: MIB Data
+
+**Purpose**: Complete MIB information exported from MIB browser. This is the **master data** used for validation and enrichment.
+
+**Required Columns**:
+
+| Column | Description | Example | Notes |
+|--------|-------------|---------|-------|
+| MIB Module | MIB module name | `SNMPv2-MIB` | Informational |
+| OID | Full numeric OID | `1.3.6.1.2.1.2.2.1.8` | Used for matching |
+| Name | MIB object name | `ifOperStatus` | Used for matching |
+| Description | Object description | `The current operational state...` | Used for enum fallback |
+| Type | MIB data type | `INTEGER` or `SEQUENCE OF` | **Critical for triggers** |
+| Syntax | Enum definition (**optional but important**) | `INTEGER {up(1), down(2)}` | **See Syntax Format below** |
+
+**Example Rows**:
+```
+MIB Module  | OID                  | Name          | Type           | Syntax                                    | Description
+SNMPv2-MIB  | 1.3.6.1.2.1.2.2      | ifTable       | SEQUENCE OF    |                                           | Interface table
+SNMPv2-MIB  | 1.3.6.1.2.1.2.2.1    | ifEntry       | IfEntry        |                                           | Interface entry
+SNMPv2-MIB  | 1.3.6.1.2.1.2.2.1.1  | ifIndex       | INTEGER32      |                                           | Interface index
+SNMPv2-MIB  | 1.3.6.1.2.1.2.2.1.2  | ifDescr       | DISPLAYSTRING  |                                           | Interface description
+SNMPv2-MIB  | 1.3.6.1.2.1.2.2.1.8  | ifOperStatus  | INTEGER        | INTEGER {up(1), down(2), testing(3)}      | Operational status
+```
+
+**How to Get MIB Data**:
+1. Use a MIB browser tool (e.g., [iReasoning MIB Browser](https://www.ireasoning.com/mibbrowser.shtml) - Free)
+2. Load your device's MIB files
+3. Export to CSV format
+4. Copy/paste into Excel MIB Data sheet
+
+**Discovery Rule Detection**:
+- Rows with **"Table"** in Name AND **"SEQUENCE OF"** in Type → Creates discovery rule
+- Next row (Entry) is skipped
+- All child OIDs become item prototypes
+- First child is used as SNMP walk master item
+
+---
+
+### Syntax Column Format (CRITICAL for Triggers & Value Mappings)
+
+The **Syntax** column is optional but **highly recommended** for status/state fields. It enables automatic trigger and value mapping generation.
+
+**Format**: `TYPE {enumName1(value1), enumName2(value2), ...}`
+
+**Examples**:
+
+#### Valid Syntax Formats
+
+```
+✅ INTEGER {up(1), down(2), testing(3), unknown(4), dormant(5)}
+✅ INTEGER {normal(1), warning(2), critical(3)}
+✅ BITS {ethernetCsmacd(6), ieee8023adLag(161)}
+✅ Integer32 {enabled(1), disabled(2)}
+```
+
+#### Common Syntax Patterns
+
+**Status/State Fields**:
+```
+INTEGER {up(1), down(2), testing(3), unknown(4), dormant(5), notPresent(6), lowerLayerDown(7)}
+```
+→ Creates trigger: `count(#3,"ne",{$INTERFACE.STATUS.OK})>=2` where OK=1
+
+**Administrative State**:
+```
+INTEGER {enabled(1), disabled(2)}
+```
+→ Creates trigger when value != 1
+
+**Operational Conditions**:
+```
+INTEGER {other(1), ok(2), degraded(3), failed(4)}
+```
+→ Identifies `ok(2)` as OK value, triggers on other states
+
+**Boolean States**:
+```
+INTEGER {true(1), false(2)}
+```
+→ Assumes first value (true) is OK
+
+#### What If Syntax Column Is Empty?
+
+The tool has **fallback mechanisms**:
+
+1. **Description Parsing**: Looks for enum patterns in Description column:
+   ```
+   Description: "up(1) - interface is operational, down(2) - interface is down"
+   ```
+   → Extracts enums from description
+
+2. **Pattern Matching**: Uses field name patterns:
+   - `cpuUtil`, `cpu5sec` → CPU utilization trigger (threshold: 90%)
+   - `temperature`, `temp` → Temperature trigger (threshold: 80°C)
+   - `memoryUtil`, `memUsed` → Memory trigger (threshold: 90%)
+   - `ifInErrors`, `packetDrops` → Error rate trigger
+
+3. **No Trigger**: If no enums and no pattern match, no trigger is created
+
+#### Syntax Column Best Practices
+
+✅ **DO**:
+- Include Syntax for all status/state fields
+- Use exact MIB format (copy from MIB browser export)
+- Include all enum values, even if unused
+
+❌ **DON'T**:
+- Leave Syntax blank for important status fields
+- Modify enum names (use exact MIB names)
+- Mix different enum formats in same file
+
+#### Examples by Field Type
+
+**Interface Status**:
+```
+Name: ifOperStatus
+Type: INTEGER
+Syntax: INTEGER {up(1), down(2), testing(3), unknown(4), dormant(5), notPresent(6), lowerLayerDown(7)}
+Result: State trigger + Value mapping (1→"up", 2→"down", etc.)
+```
+
+**Power Supply Status**:
+```
+Name: powerSupplyStatus
+Type: INTEGER
+Syntax: INTEGER {normal(1), warning(2), critical(3), shutdown(4), notPresent(5)}
+Result: State trigger + Value mapping
+```
+
+**CPU Utilization** (no enum):
+```
+Name: cpuUtilization
+Type: GAUGE32
+Syntax: (empty)
+Result: Threshold trigger at 90% (pattern-based)
+```
+
+**Serial Number** (informational):
+```
+Name: serialNumber
+Type: DISPLAYSTRING
+Syntax: (empty)
+Result: No trigger (informational field)
+```
+
+---
+
+### Complete Excel File Example
+
+**Minimum Working Example**:
+
+```
+Sheet: Template Information
+Group                        | Macros                  | Manufacturer | Model    | Tags              | Device
+Templates/Network Devices    | {$SNMP_COMMUNITY}=public| Generic      | Router   | Application:SNMP  | Router
+
+Sheet: SNMP Items
+OID              | Name
+1.3.6.1.2.1.1.5.0| sysName
+1.3.6.1.2.1.1.1.0| sysDescr
+
+Sheet: SNMP Traps
+OID                   | Name
+1.3.6.1.6.3.1.1.5.3  | linkDown
+
+Sheet: MIB Data
+MIB Module | OID              | Name      | Type           | Syntax | Description
+SNMPv2-MIB | 1.3.6.1.2.1.1.5  | sysName   | DISPLAYSTRING  |        | System name
+SNMPv2-MIB | 1.3.6.1.2.1.1.1  | sysDescr  | DISPLAYSTRING  |        | System description
+SNMPv2-MIB | 1.3.6.1.6.3.1.1.5| linkDown  | NOTIFICATION   |        | Link down trap
+```
+
+---
+
+### Validation and Error Messages
+
+**Common Validation Errors**:
+
+#### UnmatchedDataError
+```
+Error: The following SNMP Items were not found in MIB data:
+  - OID: 1.2.3.4.5, Name: unknownItem
+```
+
+**Solution**:
+- Verify OID/Name exists in MIB Data sheet
+- Check for typos (case-sensitive for Names)
+- Ensure MIB Data sheet is complete
+
+#### No Discovery Rules Generated
+```
+Warning: No discovery rules found in MIB data
+```
+
+**Solution**:
+- Add table structures to MIB Data:
+  - Name containing "Table" + Type "SEQUENCE OF"
+  - Example: `ifTable` with type `SEQUENCE OF`
+
+#### Missing Syntax Field Warning
+```
+Warning: No Syntax field found for ifOperStatus, will try Description fallback
+```
+
+**Solution**:
+- Add Syntax column to MIB Data sheet
+- Populate with enum definitions from MIB
+- Not critical but reduces trigger accuracy
+
+---
+
+### Tips for Creating Excel Files
+
+1. **Export from MIB Browser**: Most accurate MIB data
+2. **Start Small**: Begin with 5-10 items, verify, then expand
+3. **Use Sample File**: Copy structure from `sample_template_file.xlsx`
+4. **Validate Early**: Run tool frequently to catch errors early
+5. **Check OID Format**: Must be numeric (e.g., `1.3.6.1.2.1.1.1.0`)
+6. **Include Syntax**: Dramatically improves trigger quality
+7. **Test Template**: Import to Zabbix and verify functionality
 
 ## Output
 

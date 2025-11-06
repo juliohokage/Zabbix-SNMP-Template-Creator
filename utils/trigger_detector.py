@@ -82,7 +82,7 @@ class TriggerDetector:
         3. Return None if informational or can't determine
 
         Args:
-            item_data: Dictionary with item metadata
+            item_data: Dictionary with item metadata (Name, Type, Description)
             enum_data: Optional pre-parsed enum data from SyntaxParser
 
         Returns:
@@ -97,6 +97,48 @@ class TriggerDetector:
                 'use_time_function': True
             }
             or None if trigger should not be created
+
+        Examples:
+            >>> # State-based trigger with enum data
+            >>> item_data = {
+            ...     'Name': 'ifOperStatus',
+            ...     'Type': 'INTEGER',
+            ...     'Description': 'Interface operational status'
+            ... }
+            >>> enum_data = {
+            ...     'enums': [
+            ...         {'value': '1', 'name': 'up'},
+            ...         {'value': '2', 'name': 'down'}
+            ...     ],
+            ...     'ok_value': '1'
+            ... }
+            >>> result = TriggerDetector.analyze_item(item_data, enum_data)
+            >>> result['type']
+            'state'
+            >>> result['severity']
+            'AVERAGE'
+
+            >>> # Pattern-based CPU utilization trigger
+            >>> item_data = {
+            ...     'Name': 'cpuUtilization',
+            ...     'Type': 'GAUGE32',
+            ...     'Description': 'CPU utilization percentage'
+            ... }
+            >>> result = TriggerDetector.analyze_item(item_data)
+            >>> result['type']
+            'threshold'
+            >>> result['macro_value']
+            '90'
+
+            >>> # Informational field - no trigger
+            >>> item_data = {
+            ...     'Name': 'serialNumber',
+            ...     'Type': 'DISPLAYSTRING',
+            ...     'Description': 'Device serial number'
+            ... }
+            >>> result = TriggerDetector.analyze_item(item_data)
+            >>> result is None
+            True
         """
         # Check if we should create trigger at all
         if not cls.should_create_trigger(item_data):
