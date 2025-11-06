@@ -1,3 +1,3 @@
 # Core dependencies
-pandas==1.3.5  # For data manipulation and Excel file reading
-PyYAML==6.0    # For YAML generation and manipulation
+pandas>=2.0.0  # For data manipulation and Excel file reading (using newer version with pre-built wheels)
+openpyxl>=3.0.0  # Required by pandas for reading Excel files
