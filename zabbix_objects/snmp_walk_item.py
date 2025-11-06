@@ -1,13 +1,15 @@
 import uuid
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from zabbix_objects.snmp_item import SNMPItem
-from utils.config import SNMP_WALK_ITEM
+from utils.config import SNMP_WALK_ITEM, MAX_KEY_LENGTH, MAX_SNMP_OID_LENGTH
+from utils.logger import logger
 
 class SNMPWalkItem:
-    def __init__(self, discovery_rule_table: List[Dict[str, Any]], template_name: str):
+    def __init__(self, discovery_rule_table: List[Dict[str, Any]], template_name: str, table_key: Optional[str] = None):
         snmp_walk_item_data = discovery_rule_table[0]
         self.mib_module = snmp_walk_item_data['MIB Module']
+        self.table_key = table_key
 
         self.delay = SNMP_WALK_ITEM.DELAY
         self.history = SNMP_WALK_ITEM.HISTORY
@@ -15,7 +17,7 @@ class SNMPWalkItem:
         self.type = SNMP_WALK_ITEM.TYPE
         self.value_type = SNMP_WALK_ITEM.VALUE_TYPE
 
-        self.name = self._generate_name(snmp_walk_item_data)
+        self.name = self._generate_name(snmp_walk_item_data, table_key)
         self.key = self._generate_key(self.name, template_name)
         oid_string = self._parse_oids(discovery_rule_table)
         self.snmp_oid = self._generate_snmp_oid(oid_string)
@@ -27,7 +29,7 @@ class SNMPWalkItem:
         skipped_oids = []
 
         for oid in oids[2:]:
-            if len(oid_string) + len(oid) +2 <= 250:  # +2 for comma and space
+            if len(oid_string) + len(oid) +2 <= MAX_SNMP_OID_LENGTH:  # +2 for comma and space
                 oid_string += f'{oid}, ' if oid_string else oid
             else:
                 skipped_oids.append(oid)
@@ -35,19 +37,26 @@ class SNMPWalkItem:
         oid_string = oid_string.rstrip(', ')
 
         if skipped_oids:
-            print(f"\t\tWarning: {self.name} SNMP_OID length exceeded 250 characters.")
-            print(f"\tDiscovery Rule '{self.name}' is not complete. {len(skipped_oids)} OIDs were omitted.")
-            print(f"\t\tSkipped OIDs: {', '.join(skipped_oids)}")
+            logger.warning(f"{self.name} SNMP_OID length exceeded {MAX_SNMP_OID_LENGTH} characters.")
+            logger.warning(f"Discovery Rule '{self.name}' is not complete. {len(skipped_oids)} OIDs were omitted.")
+            logger.warning(f"Skipped OIDs: {', '.join(skipped_oids)}")
 
         return oid_string
 
     def _generate_snmp_oid(self, oids):
         # Skipping Table and Entry
-        return f'walk[{oids[2:]}'
+        return f'walk[{oids}]'
 
-    def _generate_name(self, snmp_walk_item: Dict[str, Any]) -> str:
+    def _generate_name(self, snmp_walk_item: Dict[str, Any], table_key: Optional[str] = None) -> str:
         item_name = SNMPItem._preprocess_name(snmp_walk_item.get('Name'))
-        return item_name.replace('Table', 'Walk')
+        item_name = item_name.replace('Table', 'Walk')
+
+        # Check if this is a split table (has _partN suffix)
+        if table_key and '_part' in table_key:
+            part_num = table_key.split('_part')[-1]
+            item_name = f"{item_name} {part_num}"
+
+        return item_name
 
     def _generate_key(self, item_name: str, template_name: str) -> str:
         template_string = template_name.lower().replace(' ', '.')
@@ -55,9 +64,9 @@ class SNMPWalkItem:
         item_string = item_string.replace(' ', '-').lower()
         key = f'{template_string}.{item_string}.walk'
 
-        if len(key) > 255:
-            print(f"Warning: Walk key '{key}' exceeds 255 characters and will be truncated.")
-            return key[:255]
+        if len(key) > MAX_KEY_LENGTH:
+            logger.warning(f"Walk key '{key}' exceeds {MAX_KEY_LENGTH} characters and will be truncated.")
+            return key[:MAX_KEY_LENGTH]
 
         return key
 

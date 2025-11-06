@@ -1,2 +1,7 @@
 *__pycache__*
 created_templates/*
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
