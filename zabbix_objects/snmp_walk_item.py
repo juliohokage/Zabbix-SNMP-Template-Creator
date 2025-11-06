@@ -2,7 +2,8 @@ import uuid
 from typing import List, Dict, Any
 
 from zabbix_objects.snmp_item import SNMPItem
-from utils.config import SNMP_WALK_ITEM
+from utils.config import SNMP_WALK_ITEM, MAX_KEY_LENGTH, MAX_SNMP_OID_LENGTH
+from utils.logger import logger
 
 class SNMPWalkItem:
     def __init__(self, discovery_rule_table: List[Dict[str, Any]], template_name: str):
@@ -27,7 +28,7 @@ class SNMPWalkItem:
         skipped_oids = []
 
         for oid in oids[2:]:
-            if len(oid_string) + len(oid) +2 <= 250:  # +2 for comma and space
+            if len(oid_string) + len(oid) +2 <= MAX_SNMP_OID_LENGTH:  # +2 for comma and space
                 oid_string += f'{oid}, ' if oid_string else oid
             else:
                 skipped_oids.append(oid)
@@ -35,15 +36,15 @@ class SNMPWalkItem:
         oid_string = oid_string.rstrip(', ')
 
         if skipped_oids:
-            print(f"\t\tWarning: {self.name} SNMP_OID length exceeded 250 characters.")
-            print(f"\tDiscovery Rule '{self.name}' is not complete. {len(skipped_oids)} OIDs were omitted.")
-            print(f"\t\tSkipped OIDs: {', '.join(skipped_oids)}")
+            logger.warning(f"{self.name} SNMP_OID length exceeded {MAX_SNMP_OID_LENGTH} characters.")
+            logger.warning(f"Discovery Rule '{self.name}' is not complete. {len(skipped_oids)} OIDs were omitted.")
+            logger.warning(f"Skipped OIDs: {', '.join(skipped_oids)}")
 
         return oid_string
 
     def _generate_snmp_oid(self, oids):
         # Skipping Table and Entry
-        return f'walk[{oids[2:]}'
+        return f'walk[{oids}]'
 
     def _generate_name(self, snmp_walk_item: Dict[str, Any]) -> str:
         item_name = SNMPItem._preprocess_name(snmp_walk_item.get('Name'))
@@ -55,9 +56,9 @@ class SNMPWalkItem:
         item_string = item_string.replace(' ', '-').lower()
         key = f'{template_string}.{item_string}.walk'
 
-        if len(key) > 255:
-            print(f"Warning: Walk key '{key}' exceeds 255 characters and will be truncated.")
-            return key[:255]
+        if len(key) > MAX_KEY_LENGTH:
+            logger.warning(f"Walk key '{key}' exceeds {MAX_KEY_LENGTH} characters and will be truncated.")
+            return key[:MAX_KEY_LENGTH]
 
         return key
 

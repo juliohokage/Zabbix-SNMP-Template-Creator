@@ -1,5 +1,9 @@
 from types import SimpleNamespace
 
+# Constants
+MAX_KEY_LENGTH = 255
+MAX_SNMP_OID_LENGTH = 250
+
 SNMP_ITEM=SimpleNamespace(
     HISTORY="90d",
     TRENDS="365d",

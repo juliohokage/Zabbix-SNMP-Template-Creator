@@ -4,7 +4,7 @@ This project is a Python-based tool designed to generate Zabbix templates for SN
 
 ## Project Goal
 
-The main objective of this script is to streamline the creation of Zabbix templates for SNMP monitoring. It takes MIB information stored in a structured Excel file and converts it into a Zabbix-compatible YAML template. This automation significantly reduces the time and effort required to set up SNMP monitoring for various devices in Zabbix.
+The main objective of this script is to streamline the creation of Zabbix templates for SNMP monitoring. It takes MIB information stored in a structured Excel file and converts it into a Zabbix-compatible JSON template. This automation significantly reduces the time and effort required to set up SNMP monitoring for various devices in Zabbix.
 
 ## Contributing
 
@@ -95,10 +95,10 @@ Ensure that your Excel file follows this structure for the script to work correc
 
 ## Output
 
-The script generates a YAML file containing the Zabbix template. The output file will be saved in the `./created_templates/` directory with a name format of:
+The script generates a JSON file containing the Zabbix template. The output file will be saved in the `./created_templates/` directory with a name format of:
 
 ```
-YYYYMMDD_HHMMSS <Template Name> Template.yaml
+YYYYMMDD_HHMMSS <Template Name> Template.json
 ```
 
 ## Troubleshooting

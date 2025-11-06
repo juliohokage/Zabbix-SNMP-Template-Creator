@@ -1,6 +1,7 @@
 import pandas as pd
 from collections import defaultdict
 from typing import List, Dict, Tuple, Any
+from utils.logger import logger
 
 class UnmatchedDataError(Exception):
     """Raised when there is unmatched data after validation."""
@@ -27,24 +28,53 @@ class MIBValidator:
             - List of preprocessed SNMP traps
             - Template information dictionary
             - Dictionary of discovery rule tables
+
+        Raises:
+            FileNotFoundError: If the Excel file doesn't exist.
+            ValueError: If required sheets are missing or malformed.
+            Exception: For other pandas/Excel reading errors.
         """
-        excel_data = pd.ExcelFile(excel_file)
+        try:
+            excel_data = pd.ExcelFile(excel_file)
+        except FileNotFoundError:
+            logger.error(f"Excel file not found: {excel_file}")
+            raise
+        except Exception as e:
+            logger.error(f"Error reading Excel file: {e}")
+            raise ValueError(f"Failed to read Excel file '{excel_file}': {e}")
+
         all_sheets_data = {}
-        
+
         na_values = ['nan', 'NaN', 'N/A', '']
+
+        try:
+            for sheet_name in excel_data.sheet_names:
+                df = pd.read_excel(excel_file, sheet_name=sheet_name, na_values=na_values)
+                df = df.where(pd.notnull(df), None)
+                sheet_data = df.to_dict('records')
+                all_sheets_data[sheet_name] = sheet_data
+        except Exception as e:
+            logger.error(f"Error processing sheet '{sheet_name}': {e}")
+            raise ValueError(f"Failed to process Excel sheet '{sheet_name}': {e}")
         
-        for sheet_name in excel_data.sheet_names:
-            df = pd.read_excel(excel_file, sheet_name=sheet_name, na_values=na_values)
-            df = df.where(pd.notnull(df), None)
-            sheet_data = df.to_dict('records')
-            all_sheets_data[sheet_name] = sheet_data
-        
+        # Validate required sheets exist
+        required_sheets = ["SNMP Items", "SNMP Traps", "Template Information"]
+        missing_sheets = [sheet for sheet in required_sheets if sheet not in all_sheets_data]
+
+        if missing_sheets:
+            logger.error(f"Missing required sheets: {', '.join(missing_sheets)}")
+            raise ValueError(f"Excel file is missing required sheets: {', '.join(missing_sheets)}")
+
         snmp_items_json_list = all_sheets_data.get("SNMP Items", [])
         snmp_traps_json_list = all_sheets_data.get("SNMP Traps", [])
         template_info = all_sheets_data.get("Template Information", [])
         template_info_json = template_info[0] if template_info else {}
-        
+
         mib_sheet_name = next((sheet for sheet in all_sheets_data.keys() if "MIB" in sheet), None)
+        if not mib_sheet_name:
+            logger.error("No MIB Data sheet found in Excel file")
+            raise ValueError("Excel file must contain a sheet with 'MIB' in its name")
+
         mib_data_json_list = all_sheets_data.get(mib_sheet_name, [])
 
         preprocessed_snmp_items = cls._preprocess_and_validate(snmp_items_json_list, mib_data_json_list, "SNMP Items")
@@ -228,8 +258,8 @@ class MIBValidator:
         # Make sure we add the last rule if it exists
         if current_rule:
             discovery_rule_tables[current_rule['OID']] = current_rule['entries']
-        
-        print(f'[{len(discovery_rule_tables)}] Discovery Rules found.')
+
+        logger.info(f'[{len(discovery_rule_tables)}] Discovery Rules found.')
         return discovery_rule_tables
 
     @staticmethod
@@ -243,11 +273,11 @@ class MIBValidator:
             null_entries (List[Dict[str, Any]]): List of null entries.
             entity_type (str): Type of entity being validated (e.g., "SNMP Items", "SNMP Traps").
         """
-        print(f"[{len(matched_data)}] Validated {entity_type} entries")
-        print(f"[{len(unmatched_data)}] Missing {entity_type} entries")
-        print(f"[{len(null_entries)}] Null entries")
+        logger.info(f"[{len(matched_data)}] Validated {entity_type} entries")
+        logger.info(f"[{len(unmatched_data)}] Missing {entity_type} entries")
+        logger.info(f"[{len(null_entries)}] Null entries")
 
         if unmatched_data:
-            print(f"The following {entity_type} entries were missing from the MIB file:")
+            logger.warning(f"The following {entity_type} entries were missing from the MIB file:")
             for entry in unmatched_data:
-                print(f"  - {entry.get('Name', 'N/A')} (OID: {entry.get('OID', 'N/A')})")
+                logger.warning(f"  - {entry.get('Name', 'N/A')} (OID: {entry.get('OID', 'N/A')})")

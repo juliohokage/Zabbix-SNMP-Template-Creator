@@ -2,7 +2,8 @@ import re
 import uuid
 from typing import List, Dict, Any, Optional
 
-from utils.config import SNMP_ITEM
+from utils.config import SNMP_ITEM, MAX_KEY_LENGTH
+from utils.logger import logger
 
 class SNMPItem:
     def __init__(self, item_data: Dict[str, Any], template_name: str):
@@ -52,11 +53,12 @@ class SNMPItem:
 
     def _generate_key(self, template_name: str) -> str:
         item_name = self.name.replace(' ', '-').lower()
-        key = f'{template_name.lower().replace(' ', '.')}.{item_name}.get'
+        template_part = template_name.lower().replace(' ', '.')
+        key = f'{template_part}.{item_name}.get'
 
-        if len(key) > 255:
-            print(f"Warning: Key '{key}' exceeds 255 characters and will be truncated.")
-            return key[:255]
+        if len(key) > MAX_KEY_LENGTH:
+            logger.warning(f"Key '{key}' exceeds {MAX_KEY_LENGTH} characters and will be truncated.")
+            return key[:MAX_KEY_LENGTH]
 
         return key
 

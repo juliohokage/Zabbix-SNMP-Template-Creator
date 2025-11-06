@@ -6,6 +6,7 @@ from typing import Literal
 
 from zabbix_objects.template import Template
 from utils.mib_validator import MIBValidator
+from utils.logger import logger
 
 def create_all_json(template: Template, include_items: bool = True, include_traps: bool = True, include_discovery_rules: bool = True) -> str:
     """
@@ -49,39 +50,55 @@ def main() -> None:
     5. Writes the JSON to a file
     """
     if len(sys.argv) < 2:
-        print("Usage: python main.py <excel_file_path>")
+        logger.error("Usage: python main.py <excel_file_path>")
         sys.exit(1)
 
     excel_file = sys.argv[1]
-    
+
     if not os.path.exists(excel_file):
-        print(f"Error: File '{excel_file}' not found.")
+        logger.error(f"File '{excel_file}' not found.")
         sys.exit(1)
 
-    print("Extracting data from Excel...")
-    snmp_items_json_list, snmp_traps_json_list, template_info_json, discovery_rule_tables = MIBValidator.extract_from_excel(excel_file)
+    try:
+        logger.info("Extracting data from Excel...")
+        snmp_items_json_list, snmp_traps_json_list, template_info_json, discovery_rule_tables = MIBValidator.extract_from_excel(excel_file)
 
-    print("Creating Template...")
-    template = Template(template_info_json, snmp_items_json_list, snmp_traps_json_list, discovery_rule_tables)
+        logger.info("Creating Template...")
+        template = Template(template_info_json, snmp_items_json_list, snmp_traps_json_list, discovery_rule_tables)
 
-    print("Creating JSON...")
-    json_template = create_all_json(template)
+        logger.info("Creating JSON...")
+        json_template = create_all_json(template)
 
-    print("Writing JSON to file...")
-    timestamp = time.strftime('%Y%m%d_%H%M%S')
-    output_dir = './created_templates'
-    output_file = f'{output_dir}/{timestamp} {template.name} Template.json'
+        logger.info("Writing JSON to file...")
+        timestamp = time.strftime('%Y%m%d_%H%M%S')
+        output_dir = './created_templates'
+        output_file = f'{output_dir}/{timestamp} {template.name} Template.json'
 
-    # Check if the directory exists, if not, create it
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-        print(f"Created directory: {output_dir}")
+        # Check if the directory exists, if not, create it
+        try:
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
+                logger.info(f"Created directory: {output_dir}")
+        except OSError as e:
+            logger.error(f"Failed to create output directory: {e}")
+            sys.exit(1)
 
-    with open(output_file, 'w') as f:
-        f.write(json_template)
+        try:
+            with open(output_file, 'w') as f:
+                f.write(json_template)
+        except IOError as e:
+            logger.error(f"Failed to write output file: {e}")
+            sys.exit(1)
 
-    print(f"JSON template saved as '{output_file}'")
-    print("Process completed successfully!")
+        logger.info(f"JSON template saved as '{output_file}'")
+        logger.info("Process completed successfully!")
+
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

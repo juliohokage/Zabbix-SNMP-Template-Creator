@@ -2,7 +2,8 @@ import re
 import uuid
 from typing import List, Dict, Any, Optional
 
-from utils.config import ITEM_PROTOTYPE
+from utils.config import ITEM_PROTOTYPE, MAX_KEY_LENGTH
+from utils.logger import logger
 
 class ItemPrototype:
     def __init__(self, item_data: Dict[str, Any], master_item_key: str):
@@ -51,11 +52,12 @@ class ItemPrototype:
         master_subkey = key_without_walk.split(".")[-1]
         item_name = self.name.replace(' ', '-').lower()
         final_item_name = item_name.replace(master_subkey, "")
-        key = f"{key_without_walk}.{final_item_name.replace("-", "")}"+'[{#SNMPINDEX}]'
+        cleaned_name = final_item_name.replace("-", "")
+        key = f"{key_without_walk}.{cleaned_name}[{{#SNMPINDEX}}]"
 
-        if len(key) > 255:
-            print(f"Warning: Key '{key}' exceeds 255 characters and will be truncated.")
-            return key[:255]
+        if len(key) > MAX_KEY_LENGTH:
+            logger.warning(f"Key '{key}' exceeds {MAX_KEY_LENGTH} characters and will be truncated.")
+            return key[:MAX_KEY_LENGTH]
 
         return key
 

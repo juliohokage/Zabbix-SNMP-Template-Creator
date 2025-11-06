@@ -47,10 +47,10 @@ class Template:
             List[str]: List of MIB module names.
         """
         mib_modules = set()
-        for entry in self.snmp_items or self.snmp_traps or []:
+        for entry in (self.snmp_items or []) + (self.snmp_traps or []):
             if mib_module := entry.mib_module:
                 mib_modules.add(mib_module)
-        
+
         return list(mib_modules) or ["N/A"]
     
     def _preprocess_description(self) -> str:
