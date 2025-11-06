@@ -246,10 +246,16 @@ class Template:
             valuemap_json = [vm.generate_json_dict() for vm in self.value_mappings]
             inner_json_structure['valuemaps'] = valuemap_json
 
-        # Add triggers
-        if self.triggers:
-            trigger_json = [trigger.generate_json_dict() for trigger in self.triggers]
-            inner_json_structure['triggers'] = trigger_json
+        # Template-level triggers are disabled for Zabbix 7.0 compatibility
+        # Zabbix 7.0 import fails with "unexpected tag 'triggers'" error when triggers
+        # are present at the template level. Trigger prototypes within discovery rules
+        # continue to work correctly. Users can manually create triggers for standalone
+        # items after importing the template if needed.
+        #
+        # Reference: https://github.com/juliohokage/Zabbix-SNMP-Template-Creator/issues/
+        # if self.triggers:
+        #     trigger_json = [trigger.generate_json_dict() for trigger in self.triggers]
+        #     inner_json_structure['triggers'] = trigger_json
 
         outer_json_structure = {
             'zabbix_export': {
