@@ -1,10 +1,10 @@
-import re
 import uuid
 from typing import List, Dict, Any
 
 from utils.config import SNMP_TRAP
+from zabbix_objects.base import ZabbixObject
 
-class SNMPTrap:
+class SNMPTrap(ZabbixObject):
     def __init__(self, trap_data: Dict[str, Any], template_name: str):
         self.mib_module = trap_data.get('MIB Module')
         self.oid = trap_data.get('OID')
@@ -18,7 +18,8 @@ class SNMPTrap:
         self.type = SNMP_TRAP.TYPE
         self.value_type = SNMP_TRAP.VALUE_TYPE
 
-        self.name = self._preprocess_name()
+        # Use base class method and then remove ' Trap' suffix
+        self.name = self._preprocess_name(self.raw_name).replace(' Trap', '')
         self.key = self._generate_key()
         self.description = self._preprocess_description()
         self.default_trigger = self._generate_default_trigger(template_name)
@@ -26,26 +27,6 @@ class SNMPTrap:
     @classmethod
     def generate_snmp_traps(cls, snmp_traps: List[Dict[str, Any]], template_name: str) -> List['SNMPTrap']:
         return [SNMPTrap(trap, template_name) for trap in snmp_traps]
-
-    def _preprocess_name(self) -> str:
-        name = re.sub(r'^[^A-Z]*', '', self.raw_name)
-        name = re.sub(r'(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])', ' ', name)
-        return name.replace(' Trap', '')
-
-    def _preprocess_description(self) -> str:
-        if not self.raw_description:
-            return f"{self.mib_module}::{self.raw_name}\nOID::{self.oid}\nNo description available."
-
-        paragraphs = self.raw_description.split('\n\n')
-        processed_paragraphs = []
-        for paragraph in paragraphs:
-            paragraph = re.sub(r'\s+', ' ', paragraph.strip())
-            paragraph = paragraph.replace("'", '"')
-            processed_paragraphs.append(paragraph)
-        
-        processed_description = '\n'.join(processed_paragraphs)
-        
-        return f"{self.mib_module}::{self.raw_name}\nOID::{self.oid}\n{processed_description}"
 
     def _generate_key(self) -> str:
         return f'snmptrap["{self.oid}"]'
