@@ -55,7 +55,46 @@ class Template:
     
     def _preprocess_description(self) -> str:
         return f"Template {self.name}\nMIB(s) used:" + "\n".join(f"- {mib}" for mib in self.mib_modules)
-      
+
+    def _parse_macros(self) -> List[Dict[str, str]]:
+        """
+        Parse macros from template information.
+
+        Expected format in Excel: {$MACRO1:value1},{$MACRO2:value2}
+        or {$MACRO1}:value1,{$MACRO2}:value2
+
+        Returns:
+            List of macro dictionaries with 'macro' and 'value' keys
+        """
+        if not self.macros:
+            return []
+
+        macro_list = []
+        # Split by comma
+        macro_entries = [m.strip() for m in str(self.macros).split(',')]
+
+        for entry in macro_entries:
+            if ':' in entry:
+                # Format: {$MACRO}:value or {$MACRO:value}
+                if entry.startswith('{$') and '}:' in entry:
+                    # {$MACRO}:value
+                    parts = entry.split('}:', 1)
+                    macro_name = parts[0] + '}'
+                    macro_value = parts[1] if len(parts) > 1 else ''
+                elif '{$' in entry and ':' in entry:
+                    # {$MACRO:value}
+                    macro_name = entry[:entry.rindex('}') + 1]
+                    macro_value = entry[entry.rindex(':') + 1:].strip('}')
+                else:
+                    continue
+
+                macro_list.append({
+                    'macro': macro_name,
+                    'value': macro_value
+                })
+
+        return macro_list
+
     def generate_json_dict(self) -> Dict[str, Any]:
         inner_json_structure = {
             'uuid': str(uuid.uuid4().hex),
@@ -69,6 +108,11 @@ class Template:
         template_tag_json = [ tag.generate_json_dict() for tag in self.template_tags]
         if template_tag_json:
             inner_json_structure['tags'] = template_tag_json
+
+        # Add macros if they exist
+        template_macros = self._parse_macros()
+        if template_macros:
+            inner_json_structure['macros'] = template_macros
 
         outer_json_structure = {
             'zabbix_export': {
