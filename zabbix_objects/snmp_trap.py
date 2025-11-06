@@ -5,6 +5,15 @@ from utils.config import SNMP_TRAP
 from zabbix_objects.base import ZabbixObject
 
 class SNMPTrap(ZabbixObject):
+    # Severity mapping - Zabbix 7.0 uses string names, not numeric values
+    SEVERITY_MAP = {
+        'INFO': 'INFO',
+        'WARNING': 'WARNING',
+        'AVERAGE': 'AVERAGE',
+        'HIGH': 'HIGH',
+        'DISASTER': 'DISASTER'
+    }
+
     def __init__(self, trap_data: Dict[str, Any], template_name: str):
         self.mib_module = trap_data.get('MIB Module')
         self.oid = trap_data.get('OID')
@@ -41,12 +50,16 @@ class SNMPTrap(ZabbixObject):
         Returns:
             Dict[str, Any]: Dictionary representing the default trigger.
         """
+        # Get priority string name (e.g., 'INFO', 'DISASTER')
+        priority_str = SNMP_TRAP.TRIGGER.PRIORITY
+        priority_value = self.SEVERITY_MAP.get(priority_str, 'INFO')  # Default to INFO
+
         default_trigger = {
                 'description': self.description,
                 'expression': f'length(last(/{template_name}/{self.key}))>0',
                 'manual_close': SNMP_TRAP.TRIGGER.CLOSE,
                 'name': self.name,
-                'priority': SNMP_TRAP.TRIGGER.PRIORITY,
+                'priority': priority_value,
                 'tags': [{'tag': 'snmp_trap', 'value': ''}],
                 'type': SNMP_TRAP.TRIGGER.TYPE,
                 'uuid': uuid.uuid4().hex,

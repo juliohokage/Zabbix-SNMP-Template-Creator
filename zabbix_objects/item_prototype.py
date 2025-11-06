@@ -53,12 +53,38 @@ class ItemPrototype(ZabbixObject):
         return base_name
 
     def _generate_key(self, master_item_key: str) -> str:
+        import re
+
         key_without_walk = master_item_key.replace(".walk", "")
         master_subkey = key_without_walk.split(".")[-1]
-        item_name = self.name.replace(' ', '-').lower()
-        final_item_name = item_name.replace(master_subkey, "")
-        cleaned_name = final_item_name.replace("-", "")
-        key = f"{key_without_walk}.{cleaned_name}[{{#SNMPINDEX}}]"
+
+        # Remove LLD macros from the name for key generation
+        # LLD macros should not be part of the key path, only in key parameters
+        item_name = self.name
+
+        # Remove macro prefix pattern like "{#MACRO1} {#MACRO2}: "
+        item_name = re.sub(r'^(\{#[^}]+\}\s*)+:\s*', '', item_name)
+
+        # Apply transformations (lowercase, replace spaces)
+        item_name = item_name.replace(' ', '-').lower()
+        final_item_name = item_name.replace(master_subkey.lower(), "")
+        cleaned_name = final_item_name.strip('-').replace("-", "")
+
+        # Add OID-based suffix to ensure uniqueness when multiple items have same name
+        # Use MD5 hash of full OID for guaranteed uniqueness while keeping keys short
+        if self.oid:
+            import hashlib
+            # Create short hash from full OID (first 8 chars of MD5)
+            oid_hash = hashlib.md5(self.oid.encode()).hexdigest()[:8]
+            oid_suffix = oid_hash
+        else:
+            oid_suffix = ""
+
+        # Combine name and OID suffix
+        if oid_suffix:
+            key = f"{key_without_walk}.{cleaned_name}.{oid_suffix}[{{#SNMPINDEX}}]"
+        else:
+            key = f"{key_without_walk}.{cleaned_name}[{{#SNMPINDEX}}]"
 
         if len(key) > MAX_KEY_LENGTH:
             logger.warning(f"Key '{key}' exceeds {MAX_KEY_LENGTH} characters and will be truncated.")

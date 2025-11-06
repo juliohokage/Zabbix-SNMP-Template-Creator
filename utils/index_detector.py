@@ -156,9 +156,16 @@ def create_lld_macros(index_oids: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         ]
     """
     lld_macros = []
+    seen_macros = set()
 
     for idx_oid in index_oids:
         macro_name = generate_lld_macro_name(idx_oid['Name'])
+
+        # Skip if we've already added this macro name
+        if macro_name in seen_macros:
+            logger.debug(f"Skipping duplicate LLD macro: {macro_name} for OID {idx_oid['Name']}")
+            continue
+
         # Extract last part of OID for path
         oid_suffix = idx_oid['OID'].split('.')[-1]
 
@@ -166,6 +173,7 @@ def create_lld_macros(index_oids: List[Dict[str, Any]]) -> List[Dict[str, str]]:
             'lld_macro': macro_name,
             'path': f"$[{{#SNMPINDEX}}].{oid_suffix}"
         })
+        seen_macros.add(macro_name)
 
     logger.debug(f"Created LLD macros: {[m['lld_macro'] for m in lld_macros]}")
 

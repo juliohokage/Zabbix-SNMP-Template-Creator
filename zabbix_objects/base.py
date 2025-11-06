@@ -58,26 +58,36 @@ class ZabbixObject(ABC):
         Map SNMP/MIB data type to Zabbix value type.
 
         Args:
-            raw_type: SNMP type from MIB (e.g., 'DISPLAYSTRING', 'Integer32')
+            raw_type: SNMP type from MIB (e.g., 'DISPLAYSTRING', 'Integer32', 'INTEGER32')
 
         Returns:
-            Zabbix value type or None (uses Zabbix default)
+            Zabbix value type or None (uses Zabbix default numeric)
 
         Mapping:
-            - DISPLAYSTRING/OCTET STRING → CHAR
-            - Integer32 → None (Zabbix default numeric)
-            - Float → FLOAT
+            - String types (DISPLAYSTRING/OCTET STRING) → CHAR
+            - Numeric integer types (INTEGER, Integer32, Unsigned32, GAUGE32, etc.) → None (numeric)
+            - Float types → FLOAT
             - Everything else → TEXT
         """
-        if raw_type == 'DISPLAYSTRING' or raw_type == 'OCTET STRING':
+        # Normalize to uppercase for case-insensitive matching
+        raw_type_upper = raw_type.upper() if raw_type else ''
+
+        # String types
+        if raw_type_upper in ['DISPLAYSTRING', 'OCTET STRING', 'SNMPADMINSTRING']:
             return 'CHAR'
 
-        if raw_type == 'Integer32':
+        # Numeric integer types - return None to use Zabbix default numeric type
+        numeric_keywords = [
+            'INTEGER', 'UNSIGNED', 'GAUGE', 'COUNTER', 'TIMETICKS', 'INTERFACEINDEX'
+        ]
+        if any(keyword in raw_type_upper for keyword in numeric_keywords):
             return None
 
-        if raw_type == 'Float':
+        # Float types
+        if 'FLOAT' in raw_type_upper or 'DOUBLE' in raw_type_upper:
             return 'FLOAT'
 
+        # Default to TEXT for unknown types
         return 'TEXT'
 
     @staticmethod

@@ -5,13 +5,13 @@ from typing import Dict, Any, List, Optional
 class TriggerPrototype:
     """Zabbix trigger prototype for item prototypes in discovery rules."""
 
-    # Severity mapping
+    # Severity mapping - Zabbix 7.0 uses string names, not numeric values
     SEVERITY_MAP = {
-        'INFO': '1',
-        'WARNING': '2',
-        'AVERAGE': '3',
-        'HIGH': '4',
-        'DISASTER': '5'
+        'INFO': 'INFO',
+        'WARNING': 'WARNING',
+        'AVERAGE': 'AVERAGE',
+        'HIGH': 'HIGH',
+        'DISASTER': 'DISASTER'
     }
 
     def __init__(self, item_proto_name: str, item_proto_key: str, template_name: str,
@@ -101,9 +101,9 @@ class TriggerPrototype:
             return f'last({item_ref})<>{macro_name}'
 
     def _get_severity(self) -> str:
-        """Get numeric severity code."""
+        """Get severity string name."""
         severity_name = self.config.get('severity', 'AVERAGE')
-        return self.SEVERITY_MAP.get(severity_name, '3')  # Default to AVERAGE
+        return self.SEVERITY_MAP.get(severity_name, 'AVERAGE')  # Default to AVERAGE
 
     def generate_json_dict(self) -> Dict[str, Any]:
         """

@@ -59,6 +59,7 @@ class DiscoveryRule:
     def _generate_item_prototypes(self, master_item_key: str, discovery_rule_table: List[Dict[str, Any]]) -> List[ItemPrototype]:
         """Generate item prototypes with enum data and trigger configs."""
         item_prototypes = []
+        seen_keys = set()  # Track keys to avoid duplicates from split discovery rules
 
         # Start at 2nd index in DiscoveryRuleTable b/c the 1st entry will always be the master item
         for entry in discovery_rule_table[1:]:
@@ -87,6 +88,13 @@ class DiscoveryRule:
 
             item_proto = ItemPrototype(entry, master_item_key, self.lld_macros,
                                       value_mapping_name, enum_data, trigger_config)
+
+            # Skip if we've already added an item with this key (handles split discovery rules)
+            if item_proto.key in seen_keys:
+                logger.debug(f"Skipping duplicate item prototype key: {item_proto.key}")
+                continue
+
+            seen_keys.add(item_proto.key)
             item_prototypes.append(item_proto)
 
         return item_prototypes
@@ -97,6 +105,19 @@ class DiscoveryRule:
 
         for item_proto in self.item_prototypes:
             if item_proto.trigger_config:
+                # Validate trigger compatibility with value type
+                trigger_type = item_proto.trigger_config.get('type')
+                value_type = item_proto.value_type
+
+                # min(), max(), avg(), rate() require numeric types
+                # TEXT and CHAR are not numeric
+                if trigger_type in ['threshold', 'rate'] and value_type in ['TEXT', 'CHAR']:
+                    logger.warning(
+                        f"Skipping {trigger_type} trigger for '{item_proto.name}': "
+                        f"incompatible value_type '{value_type}' (SNMP type: {item_proto.raw_type})"
+                    )
+                    continue
+
                 trigger_proto = TriggerPrototype(
                     item_proto.name,
                     item_proto.key,
