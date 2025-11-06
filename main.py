@@ -2,11 +2,13 @@ import os
 import sys
 import time
 import json
+import argparse
+import logging
 from typing import Literal
 
 from zabbix_objects.template import Template
 from utils.mib_validator import MIBValidator
-from utils.logger import logger
+from utils.logger import logger, setup_logger
 
 def create_all_json(template: Template, include_items: bool = True, include_traps: bool = True, include_discovery_rules: bool = True) -> str:
     """
@@ -38,40 +40,112 @@ def create_all_json(template: Template, include_items: bool = True, include_trap
 
     return json.dumps(template_json, indent=4, sort_keys=False)
 
+def parse_arguments() -> argparse.Namespace:
+    """
+    Parse command-line arguments.
+
+    Returns:
+        Parsed arguments namespace
+    """
+    parser = argparse.ArgumentParser(
+        description='Generate Zabbix templates from MIB data in Excel files',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Examples:
+  %(prog)s sample_template_file.xlsx
+  %(prog)s -o /path/to/output input.xlsx
+  %(prog)s --log-level DEBUG input.xlsx
+  %(prog)s --no-items --no-traps input.xlsx  (discovery rules only)
+
+For more information, visit: https://github.com/Galileo-Suite/Zabbix-SNMP-Template-Creator
+        '''
+    )
+
+    parser.add_argument(
+        'excel_file',
+        help='Path to Excel file containing MIB data'
+    )
+
+    parser.add_argument(
+        '-o', '--output-dir',
+        default='./created_templates',
+        help='Output directory for generated templates (default: ./created_templates)'
+    )
+
+    parser.add_argument(
+        '--log-level',
+        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
+        default='INFO',
+        help='Set logging level (default: INFO)'
+    )
+
+    parser.add_argument(
+        '--no-items',
+        action='store_true',
+        help='Exclude SNMP items from template'
+    )
+
+    parser.add_argument(
+        '--no-traps',
+        action='store_true',
+        help='Exclude SNMP traps from template'
+    )
+
+    parser.add_argument(
+        '--no-discovery',
+        action='store_true',
+        help='Exclude discovery rules from template'
+    )
+
+    parser.add_argument(
+        '-v', '--version',
+        action='version',
+        version='Zabbix SNMP Template Generator 1.0.0'
+    )
+
+    return parser.parse_args()
+
 def main() -> None:
     """
     Main function to process an Excel file and generate a Zabbix template JSON.
 
     This function:
-    1. Validates the command-line arguments
+    1. Parses command-line arguments
     2. Extracts data from the provided Excel file
     3. Creates a Template object
     4. Generates a JSON representation of the template
     5. Writes the JSON to a file
     """
-    if len(sys.argv) < 2:
-        logger.error("Usage: python main.py <excel_file_path>")
-        sys.exit(1)
+    # Parse arguments
+    args = parse_arguments()
 
-    excel_file = sys.argv[1]
+    # Set log level
+    log_level = getattr(logging, args.log_level)
+    setup_logger('zabbix_template_generator', log_level)
 
-    if not os.path.exists(excel_file):
-        logger.error(f"File '{excel_file}' not found.")
+    # Validate file exists
+    if not os.path.exists(args.excel_file):
+        logger.error(f"File '{args.excel_file}' not found.")
         sys.exit(1)
 
     try:
         logger.info("Extracting data from Excel...")
-        snmp_items_json_list, snmp_traps_json_list, template_info_json, discovery_rule_tables = MIBValidator.extract_from_excel(excel_file)
+        snmp_items_json_list, snmp_traps_json_list, template_info_json, discovery_rule_tables = MIBValidator.extract_from_excel(args.excel_file)
 
         logger.info("Creating Template...")
         template = Template(template_info_json, snmp_items_json_list, snmp_traps_json_list, discovery_rule_tables)
 
         logger.info("Creating JSON...")
-        json_template = create_all_json(template)
+        json_template = create_all_json(
+            template,
+            include_items=not args.no_items,
+            include_traps=not args.no_traps,
+            include_discovery_rules=not args.no_discovery
+        )
 
         logger.info("Writing JSON to file...")
         timestamp = time.strftime('%Y%m%d_%H%M%S')
-        output_dir = './created_templates'
+        output_dir = args.output_dir
         output_file = f'{output_dir}/{timestamp} {template.name} Template.json'
 
         # Check if the directory exists, if not, create it
