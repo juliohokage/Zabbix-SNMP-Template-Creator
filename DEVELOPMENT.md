@@ -34,7 +34,7 @@ This guide helps developers contribute to the Zabbix SNMP Template Creator proje
 
 3. **Add upstream remote**:
    ```bash
-   git remote add upstream https://github.com/Galileo-Suite/Zabbix-SNMP-Template-Creator.git
+   git remote add upstream https://github.com/juliohokage/Zabbix-SNMP-Template-Creator.git
    ```
 
 4. **Create virtual environment** (recommended):

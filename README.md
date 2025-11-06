@@ -67,7 +67,7 @@ This automation significantly reduces the time and effort required to set up SNM
 1. Clone this repository to your local machine:
 
    ```
-   git clone https://github.com/Galileo-Suite/Zabbix-SNMP-Template-Creator.git
+   git clone https://github.com/juliohokage/Zabbix-SNMP-Template-Creator.git
    cd Zabbix-SNMP-Template-Creator
    ```
 
