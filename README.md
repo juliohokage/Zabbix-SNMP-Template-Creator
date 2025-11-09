@@ -34,11 +34,39 @@ This automation significantly reduces the time and effort required to set up SNM
 
 ### 🎯 Features on Roadmap
 
-- [ ] Time-based anomaly detection triggers
-- [ ] Graph prototypes for discovery rules
-- [ ] Template dependency management
-- [ ] Multi-MIB module support
-- [ ] Web interface for easier configuration
+#### High Priority Bug Fixes & Improvements
+
+- [ ] **Fix trigger prototypes for Integer types**: Analyze and fix issues where trigger prototypes are not being created correctly for INTEGER/Integer32 value types
+- [ ] **Add tags with LLD macros to item prototypes**: Include index LLD macros (e.g., `{#IFINDEX}`, `{#IFDESCR}`) as tags on item prototypes for better visualization and filtering in Latest Data view
+- [ ] **CSV to XLSX preprocessing tool**: Create a preprocessing utility that:
+  - Accepts CSV exports from MIB Browser tools
+  - Automatically formats and structures data into the required Excel format (Template Information, SNMP Items, SNMP Traps, MIB Data sheets)
+  - Validates and saves as properly formatted XLSX file ready for template generation
+  - Eliminates manual Excel file formatting steps
+- [ ] **Multi-MIB module support**: Support for templates spanning multiple MIB modules
+
+#### Template Enhancement Features
+
+- [ ] **Graph prototypes for discovery rules**: Auto-generate graph prototypes for related metrics (utilization, errors, traffic)
+- [ ] **Unit specification**: Automatically add units to items (%, °C, bps, packets/s) based on item type and name patterns
+- [ ] **Customizable thresholds via config**: Allow users to customize trigger threshold values (CPU %, temperature, memory %, etc.) via configuration file instead of hardcoded values in trigger_detector.py
+- [ ] **Host prototype support**: Support for nested discovery scenarios (e.g., chassis → modules → interfaces)
+- [ ] **Value mapping enhancements**: Improved enum detection from descriptions and better fallback mechanisms
+
+#### User Experience Improvements
+
+- [ ] **Web interface for template generation**: Browser-based UI for easier configuration and template creation
+  - Drag-and-drop file upload
+  - Interactive preview and editing
+  - Template validation and testing
+  - Download generated templates
+- [ ] **Enhanced CLI options**:
+  - Batch processing for multiple files
+  - Verbose/debug output modes
+  - Dry-run mode to preview without generating
+  - Custom output directory
+  - Config file support
+- [ ] **Better error messages**: More detailed validation errors with line numbers, suggestions, and recovery options
 
 ## Table of Contents
 
