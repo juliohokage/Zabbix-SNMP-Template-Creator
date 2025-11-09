@@ -34,11 +34,55 @@ This automation significantly reduces the time and effort required to set up SNM
 
 ### 🎯 Features on Roadmap
 
-- [ ] Time-based anomaly detection triggers
-- [ ] Graph prototypes for discovery rules
-- [ ] Template dependency management
-- [ ] Multi-MIB module support
-- [ ] Web interface for easier configuration
+#### High Priority Bug Fixes & Improvements
+
+- [ ] **Fix trigger prototypes for Integer types**: Analyze and fix issues where trigger prototypes are not being created correctly for INTEGER/Integer32 value types
+- [ ] **Add tags with LLD macros to item prototypes**: Include index LLD macros (e.g., `{#IFINDEX}`, `{#IFDESCR}`) as tags on item prototypes for better visualization and filtering in Latest Data view
+- [ ] **CSV to XLSX preprocessing tool**: Create a preprocessing utility that:
+  - Accepts CSV exports from MIB Browser tools
+  - Automatically formats and structures data into the required Excel format (Template Information, SNMP Items, SNMP Traps, MIB Data sheets)
+  - Validates and saves as properly formatted XLSX file ready for template generation
+  - Eliminates manual Excel file formatting steps
+
+#### Template Enhancement Features
+
+- [ ] **Graph prototypes for discovery rules**: Auto-generate graph prototypes for related metrics (utilization, errors, traffic)
+- [ ] **Item preprocessing support**: Add preprocessing steps to items/item prototypes (multipliers, regex, JSONPath, custom scripts)
+- [ ] **Unit specification**: Automatically add units to items (%, °C, bps, packets/s) based on item type and name patterns
+- [ ] **Customizable thresholds via config**: YAML/JSON configuration file for threshold values instead of hardcoded constants
+- [ ] **Time-based anomaly detection triggers**: Baseline-based triggers for detecting unusual patterns
+
+#### User Experience Improvements
+
+- [ ] **Web interface for template generation**: Browser-based UI for easier configuration and template creation
+  - Drag-and-drop file upload
+  - Interactive preview and editing
+  - Template validation and testing
+  - Download generated templates
+- [ ] **Enhanced CLI options**:
+  - Batch processing for multiple files
+  - Verbose/debug output modes
+  - Dry-run mode to preview without generating
+  - Custom output directory
+  - Config file support
+- [ ] **Better error messages**: More detailed validation errors with line numbers, suggestions, and recovery options
+
+#### Template Management Features
+
+- [ ] **Template dependency management**: Handle template linking and dependencies
+- [ ] **Multi-MIB module support**: Support for templates spanning multiple MIB modules
+- [ ] **Template validation**: Validate generated JSON against Zabbix schema before output
+- [ ] **Export format options**: Support XML (older Zabbix versions), YAML (human-readable)
+- [ ] **Template versioning**: Track template changes and maintain version history
+
+#### Advanced Features
+
+- [ ] **Dashboard/Screen generation**: Auto-create basic dashboards with graphs and widgets
+- [ ] **Host prototype support**: Support for nested discovery scenarios (e.g., chassis → modules → interfaces)
+- [ ] **Documentation generation**: Auto-generate markdown documentation for templates with item descriptions, trigger logic, and usage instructions
+- [ ] **Value mapping enhancements**: Improved enum detection from descriptions and better fallback mechanisms
+- [ ] **Performance optimizations**: Async processing for very large MIB files (10,000+ OIDs)
+- [ ] **Plugin system**: Extensible architecture for custom trigger detectors, value mappers, and validators
 
 ## Table of Contents
 
