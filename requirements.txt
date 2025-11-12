@@ -2,6 +2,11 @@
 pandas>=2.0.0  # For data manipulation and Excel file reading (using newer version with pre-built wheels)
 openpyxl>=3.0.0  # Required by pandas for reading Excel files
 
+# Web API dependencies
+flask>=3.0.0  # Web framework for REST API
+flask-cors>=4.0.0  # CORS support for API
+gunicorn>=21.0.0  # Production WSGI server
+
 # Testing dependencies
 pytest>=7.0.0  # Testing framework
 pytest-cov>=4.0.0  # Coverage reporting
