@@ -2,6 +2,8 @@
 
 A comprehensive Python tool that automates the creation of production-ready Zabbix templates for SNMP-enabled devices. This tool extracts MIB (Management Information Base) data from Excel files and generates complete Zabbix 7.0 compatible JSON templates with intelligent trigger generation, value mappings, discovery rules, and more.
 
+**🌐 NEW: Web Interface Available!** Use the intuitive web interface for easy template generation without command-line knowledge. See [Web Interface](#web-interface) section below.
+
 ## Project Goal
 
 The main objective is to streamline the creation of Zabbix templates for SNMP monitoring by:
@@ -18,6 +20,14 @@ This automation significantly reduces the time and effort required to set up SNM
 
 ### ✅ Implemented Features
 
+- **🌐 Web Interface**: User-friendly web UI with:
+  - Drag-and-drop file upload
+  - Step-by-step wizard (6 steps)
+  - Interactive item/trap selection
+  - Discovery rule configuration
+  - Real-time validation
+  - JSON preview and download
+  - Docker deployment support
 - **SNMP Items**: Automatic creation from Excel sheet with OID validation
 - **SNMP Traps**: Trap monitoring configuration from Excel sheet
 - **Discovery Rules**: Auto-generated from MIB table structures (SEQUENCE OF types)
@@ -31,6 +41,7 @@ This automation significantly reduces the time and effort required to set up SNM
 - **Value Mappings**: Auto-generated from MIB enum definitions
 - **MIB Validation**: Items and traps validated against MIB data
 - **Comprehensive Testing**: 89 unit tests with 90% code coverage
+- **REST API**: Flask-based API for programmatic access
 
 ### 🎯 Features on Roadmap
 
@@ -70,9 +81,10 @@ This automation significantly reduces the time and effort required to set up SNM
 
 ## Table of Contents
 
+- [Web Interface](#web-interface) 🌐 **NEW!**
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
-- [Quick Start](#quick-start)
+- [Quick Start (CLI)](#quick-start-cli)
 - [Input File Specifications](#input-file-specifications)
 - [How It Works](#how-it-works)
 - [Output](#output)
@@ -109,7 +121,55 @@ This automation significantly reduces the time and effort required to set up SNM
   pip install {package-name}
   ```
 
-## Quick Start
+## Web Interface
+
+**NEW!** We now provide a user-friendly web interface for easy template generation.
+
+### Quick Start with Web Interface
+
+#### Option 1: Docker (Recommended)
+
+```bash
+# Start the web interface
+docker-compose up -d
+
+# Access at http://localhost:5000
+```
+
+#### Option 2: Quick Start Script
+
+```bash
+# Run the startup script
+./start-web.sh
+
+# Access at http://localhost:5000 (Docker) or http://localhost:3000 (Dev mode)
+```
+
+### Web Interface Features
+
+- **🎯 Drag-and-Drop Upload**: Simply drag your Excel/CSV file
+- **📋 Step-by-Step Wizard**: 6 intuitive steps guide you through
+- **🔍 Interactive Selection**: Choose items, traps, and discovery rules visually
+- **✅ Real-Time Validation**: Instant feedback on your configuration
+- **📄 JSON Preview**: View and download your template
+- **🐳 Docker Ready**: One-command deployment
+
+### Usage Flow
+
+1. **Upload**: Drag and drop your MIB Browser export file
+2. **Configure**: Fill in template name, group, and SNMP macros
+3. **Select Items**: Choose which SNMP items and traps to include
+4. **Discovery Rules**: Configure which tables to monitor
+5. **Triggers**: Enable/disable automatic trigger generation
+6. **Generate**: Review, validate, and download your template
+
+📚 **Full Documentation**: See [WEB_INTERFACE_README.md](WEB_INTERFACE_README.md) for detailed web interface documentation, API reference, and deployment guide.
+
+---
+
+## Quick Start (CLI)
+
+For command-line usage without the web interface:
 
 1. **Prepare your Excel file** with MIB data (see [Input File Specifications](#input-file-specifications))
 

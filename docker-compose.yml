@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  zabbix-template-generator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zabbix-snmp-template-generator
+    ports:
+      - "5000:5000"
+    volumes:
+      # Persist uploaded files and generated templates
+      - ./uploads:/app/uploads
+      - ./created_templates:/app/created_templates
+    environment:
+      # Flask configuration
+      - FLASK_ENV=production
+      - MAX_UPLOAD_SIZE=52428800  # 50MB in bytes
+      - SESSION_TIMEOUT=3600
+
+      # Logging
+      - LOG_LEVEL=INFO
+
+      # CORS settings (adjust for production)
+      - CORS_ORIGINS=*
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - zabbix-net
+
+networks:
+  zabbix-net:
+    driver: bridge
+
+volumes:
+  uploads:
+  templates:

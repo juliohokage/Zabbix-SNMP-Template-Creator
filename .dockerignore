@@ -1,0 +1,65 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+.pytest_cache
+.coverage
+htmlcov
+
+# Virtual environments
+venv
+env
+ENV
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Node
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Frontend build (will be copied explicitly)
+frontend/build
+frontend/node_modules
+
+# Documentation
+*.md
+!README.md
+docs
+
+# Test files
+tests
+*.test.js
+*.spec.js
+
+# Created templates and uploads (will be mounted as volumes)
+created_templates
+uploads
+sample_template_file.xlsx
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
