@@ -18,6 +18,7 @@ import { CloudUpload, CheckCircle } from '@mui/icons-material'
 import { useDropzone } from 'react-dropzone'
 import { uploadFile } from '../../api/templateApi'
 import { useTemplate } from '../../contexts/TemplateContext'
+import CSVPreprocessDialog from '../CSVPreprocessDialog'
 
 export default function Step1Upload() {
   const { updateState, nextStep } = useTemplate()
@@ -26,10 +27,23 @@ export default function Step1Upload() {
   const [uploadSuccess, setUploadSuccess] = useState(false)
   const [uploadedData, setUploadedData] = useState(null)
 
+  // CSV preprocessing state
+  const [csvFile, setCsvFile] = useState(null)
+  const [showCsvDialog, setShowCsvDialog] = useState(false)
+
   const onDrop = useCallback(async (acceptedFiles) => {
     if (acceptedFiles.length === 0) return
 
     const file = acceptedFiles[0]
+
+    // Check if it's a CSV file - show preprocessing dialog
+    if (file.name.toLowerCase().endsWith('.csv')) {
+      setCsvFile(file)
+      setShowCsvDialog(true)
+      return
+    }
+
+    // Otherwise, proceed with regular XLSX upload
     setUploading(true)
     setError(null)
 
@@ -66,6 +80,33 @@ export default function Step1Upload() {
     }
   }, [updateState])
 
+  const handleCsvProcessed = useCallback((data, filename) => {
+    // Update context with processed CSV data (same as XLSX upload)
+    updateState({
+      sessionId: data.session_id,
+      filename: filename,
+      snmpItemsAvailable: data.snmp_items_available,
+      snmpTrapsAvailable: data.snmp_traps_available,
+      discoveredTables: data.discovered_tables,
+      stats: data.stats,
+      templateInfo: {
+        ...data.template_info,
+        macros: data.template_info.Macros || []
+      },
+      source: 'csv'
+    })
+
+    setUploadedData(data)
+    setUploadSuccess(true)
+    setShowCsvDialog(false)
+    setCsvFile(null)
+  }, [updateState])
+
+  const handleCsvDialogClose = useCallback(() => {
+    setShowCsvDialog(false)
+    setCsvFile(null)
+  }, [])
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
@@ -91,6 +132,12 @@ export default function Step1Upload() {
       <Typography variant="body1" color="text.secondary" paragraph>
         Upload your MIB Browser export file (Excel or CSV format) to begin creating your Zabbix template.
       </Typography>
+
+      {/* Info about CSV preprocessing */}
+      <Alert severity="info" sx={{ mb: 3 }}>
+        <strong>CSV files:</strong> Automatically preprocessed with intelligent item/trap suggestions!
+        You'll be able to configure template details and review auto-detected items before processing.
+      </Alert>
 
       {/* Upload Area */}
       <Box sx={{ my: 4 }}>
@@ -127,6 +174,14 @@ export default function Step1Upload() {
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                 {uploadedData?.stats.total_entries} MIB entries loaded
               </Typography>
+              {uploadedData?.stats.source === 'csv_preprocessed' && (
+                <Chip
+                  label="CSV Preprocessed"
+                  color="primary"
+                  size="small"
+                  sx={{ mt: 1 }}
+                />
+              )}
             </Box>
           ) : (
             <Box>
@@ -142,6 +197,9 @@ export default function Step1Upload() {
               </Button>
               <Typography variant="caption" display="block" sx={{ mt: 2 }} color="text.secondary">
                 Supported formats: .xlsx, .xls, .csv (Max 50MB)
+              </Typography>
+              <Typography variant="caption" display="block" sx={{ mt: 1, fontWeight: 'bold' }} color="primary.main">
+                ⚡ CSV files are automatically preprocessed with smart suggestions!
               </Typography>
             </Box>
           )}
@@ -239,6 +297,14 @@ export default function Step1Upload() {
           Next: Configure Template
         </Button>
       </Box>
+
+      {/* CSV Preprocessing Dialog */}
+      <CSVPreprocessDialog
+        open={showCsvDialog}
+        onClose={handleCsvDialogClose}
+        file={csvFile}
+        onSuccess={handleCsvProcessed}
+      />
     </Box>
   )
 }
