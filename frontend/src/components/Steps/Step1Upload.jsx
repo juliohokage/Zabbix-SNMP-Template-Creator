@@ -194,7 +194,7 @@ export default function Step1Upload() {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableRow>Name</TableRow>
+                      <TableCell>Name</TableCell>
                       <TableCell>OID</TableCell>
                       <TableCell align="right">Item Count</TableCell>
                       <TableCell align="center">Status</TableCell>

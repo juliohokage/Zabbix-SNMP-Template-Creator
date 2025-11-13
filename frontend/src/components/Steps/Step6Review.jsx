@@ -22,7 +22,8 @@ import {
   Download,
   ContentCopy
 } from '@mui/icons-material'
-import ReactJson from 'react-json-view'
+import JsonView from 'react18-json-view'
+import 'react18-json-view/src/style.css'
 import { useTemplate } from '../../contexts/TemplateContext'
 import { generateTemplate } from '../../api/templateApi'
 
@@ -292,14 +293,10 @@ export default function Step6Review() {
               backgroundColor: '#f5f5f5'
             }}
           >
-            <ReactJson
+            <JsonView
               src={templateData?.template_json || {}}
-              theme="rjv-default"
               collapsed={2}
-              displayDataTypes={false}
-              displayObjectSize={true}
               enableClipboard={true}
-              name="template"
             />
           </Paper>
         </Box>
@@ -396,7 +393,7 @@ export default function Step6Review() {
       )}
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
+        <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
           <Tab label="Summary" />
           <Tab label="JSON Preview" disabled={!generated} />
           <Tab label="Validation" disabled={!generated} />

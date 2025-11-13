@@ -13,9 +13,10 @@ import json
 import time
 import uuid
 import tempfile
+import math
 from io import BytesIO
 from typing import Dict, Any, List, Tuple
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
@@ -40,6 +41,26 @@ def allowed_file(filename: str) -> bool:
     """Check if uploaded file has allowed extension."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def clean_nan_values(obj):
+    """
+    Recursively replace NaN and inf values with None for JSON serialization.
+
+    Args:
+        obj: Any Python object (dict, list, or primitive)
+
+    Returns:
+        Object with NaN/inf values replaced with None
+    """
+    if isinstance(obj, dict):
+        return {key: clean_nan_values(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [clean_nan_values(item) for item in obj]
+    elif isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    return obj
+
 def create_error_response(error_type: str, message: str, details: Any = None, status_code: int = 400):
     """Create standardized error response."""
     response = {
@@ -53,9 +74,12 @@ def create_error_response(error_type: str, message: str, details: Any = None, st
 
 def create_success_response(data: Dict[str, Any], message: str = None):
     """Create standardized success response."""
+    # Clean NaN values before creating response
+    clean_data = clean_nan_values(data)
+
     response = {
         'status': 'success',
-        'data': data
+        'data': clean_data
     }
     if message:
         response['message'] = message
@@ -69,6 +93,23 @@ def health_check():
         'service': 'Zabbix SNMP Template Generator API',
         'version': '1.0.0'
     })
+
+# Serve React frontend (placed after all API routes to avoid conflicts)
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_frontend(path):
+    """Serve the React frontend."""
+    # Don't intercept API routes
+    if path.startswith('api/'):
+        return create_error_response('not_found', 'Endpoint not found', status_code=404)
+
+    static_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+
+    # If path is empty or doesn't exist, serve index.html
+    if path == '' or not os.path.exists(os.path.join(static_folder, path)):
+        return send_from_directory(static_folder, 'index.html')
+
+    return send_from_directory(static_folder, path)
 
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
