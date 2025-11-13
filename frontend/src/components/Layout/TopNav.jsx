@@ -21,7 +21,7 @@ import {
 import { useTemplate } from '../../contexts/TemplateContext'
 
 export default function TopNav() {
-  const { state, resetState } = useTemplate()
+  const { state, resetState, loadState } = useTemplate()
   const [anchorEl, setAnchorEl] = useState(null)
   const [darkMode, setDarkMode] = useState(false)
 
@@ -48,7 +48,7 @@ export default function TopNav() {
       const draft = localStorage.getItem('template_draft')
       if (draft) {
         const parsedDraft = JSON.parse(draft)
-        // TODO: Load draft into state
+        loadState(parsedDraft)
         alert('Draft loaded successfully!')
       } else {
         alert('No saved draft found')

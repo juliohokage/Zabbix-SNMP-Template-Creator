@@ -112,13 +112,18 @@ export const TemplateProvider = ({ children }) => {
     })
   }, [])
 
+  const loadState = useCallback((loadedState) => {
+    setState(loadedState)
+  }, [])
+
   const value = {
     state,
     updateState,
     setCurrentStep,
     nextStep,
     previousStep,
-    resetState
+    resetState,
+    loadState
   }
 
   return (
