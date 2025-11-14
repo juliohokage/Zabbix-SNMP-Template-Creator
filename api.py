@@ -23,6 +23,8 @@ from werkzeug.utils import secure_filename
 from zabbix_objects.template import Template
 from utils.mib_validator import MIBValidator, UnmatchedDataError
 from utils.logger import logger, setup_logger
+from utils.csv_preprocessor import CSVPreprocessor
+from utils.item_suggester import ItemSuggester
 from main import create_all_json
 
 # Initialize Flask app
@@ -93,6 +95,263 @@ def health_check():
         'service': 'Zabbix SNMP Template Generator API',
         'version': '1.0.0'
     })
+
+@app.route('/api/csv/preview', methods=['POST'])
+def preview_csv():
+    """
+    Preview CSV file and return statistics and suggestions.
+
+    Request:
+        - file: CSV file (multipart/form-data)
+
+    Response:
+        {
+            "status": "success",
+            "data": {
+                "statistics": {
+                    "total_entries": 571,
+                    "readable_items": 274,
+                    "traps": 23,
+                    "tables": 58,
+                    "not_accessible": 216,
+                    "critical_items": 56,
+                    "important_items": 206,
+                    "informational_items": 12
+                },
+                "suggested_items": ["entSensorStatus", ...],
+                "suggested_traps": ["linkDown", ...],
+                "categorized_counts": {
+                    "critical": 56,
+                    "important": 206,
+                    "informational": 12
+                },
+                "primary_mib_module": "OSPFV3-MIB",
+                "mib_entries": 571
+            }
+        }
+    """
+    try:
+        # Check if file is in request
+        if 'file' not in request.files:
+            return create_error_response('missing_file', 'No file provided in request')
+
+        file = request.files['file']
+
+        if file.filename == '':
+            return create_error_response('empty_filename', 'No file selected')
+
+        # Check it's a CSV file
+        if not file.filename.lower().endswith('.csv'):
+            return create_error_response(
+                'invalid_file_type',
+                'File must be a CSV file'
+            )
+
+        # Save file temporarily
+        filename = secure_filename(file.filename)
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{uuid.uuid4()}_{filename}")
+        file.save(temp_path)
+
+        logger.info(f"Previewing CSV file: {filename}")
+
+        try:
+            # Get preview data
+            preprocessor = CSVPreprocessor()
+            preview_data = preprocessor.get_preview_data(temp_path)
+
+            logger.info(f"CSV preview generated: {preview_data['mib_entries']} entries")
+            return create_success_response(preview_data, 'CSV preview generated successfully')
+
+        except ValueError as e:
+            return create_error_response('validation_error', str(e))
+        except Exception as e:
+            logger.error(f"Error previewing CSV: {e}", exc_info=True)
+            return create_error_response('processing_error', f'Error processing CSV: {str(e)}')
+        finally:
+            # Clean up temp file
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+    except Exception as e:
+        logger.error(f"Error in CSV preview: {e}", exc_info=True)
+        return create_error_response('internal_error', f'Error: {str(e)}', status_code=500)
+
+@app.route('/api/csv/process', methods=['POST'])
+def process_csv():
+    """
+    Process CSV file and create session like XLSX upload.
+
+    Request (multipart/form-data):
+        - file: CSV file
+        - template_name: Template name
+        - template_group: Template group (optional)
+        - manufacturer: Manufacturer (optional)
+        - device: Device type (optional)
+        - model: Model (optional)
+        - macros: Macros (optional)
+        - tags: Tags (optional)
+        - selected_items: JSON array of selected item names (optional)
+        - selected_traps: JSON array of selected trap names (optional)
+        - include_informational: Boolean (optional, default true)
+
+    Response:
+        Same as /api/upload - creates a session with processed data
+    """
+    try:
+        # Check if file is in request
+        if 'file' not in request.files:
+            return create_error_response('missing_file', 'No file provided in request')
+
+        file = request.files['file']
+
+        if file.filename == '':
+            return create_error_response('empty_filename', 'No file selected')
+
+        # Check it's a CSV file
+        if not file.filename.lower().endswith('.csv'):
+            return create_error_response(
+                'invalid_file_type',
+                'File must be a CSV file'
+            )
+
+        # Get form data
+        template_name = request.form.get('template_name', 'SNMP Template')
+        template_group = request.form.get('template_group', 'Templates/Network Devices')
+        manufacturer = request.form.get('manufacturer', 'Generic')
+        device = request.form.get('device', 'Network Device')
+        model = request.form.get('model', '')
+        macros = request.form.get('macros', '{$SNMP_COMMUNITY}=public')
+        tags = request.form.get('tags', '')
+        include_informational = request.form.get('include_informational', 'true').lower() == 'true'
+
+        # Parse selected items/traps if provided
+        selected_items = request.form.get('selected_items')
+        selected_traps = request.form.get('selected_traps')
+
+        if selected_items:
+            try:
+                selected_items = json.loads(selected_items)
+            except:
+                selected_items = None
+
+        if selected_traps:
+            try:
+                selected_traps = json.loads(selected_traps)
+            except:
+                selected_traps = None
+
+        # Save file temporarily
+        filename = secure_filename(file.filename)
+        csv_temp_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{uuid.uuid4()}_{filename}")
+        file.save(csv_temp_path)
+
+        logger.info(f"Processing CSV file: {filename}")
+
+        try:
+            # Create temporary XLSX output path
+            xlsx_temp_path = os.path.join(
+                app.config['UPLOAD_FOLDER'],
+                f"{uuid.uuid4()}_preprocessed.xlsx"
+            )
+
+            # Process CSV to XLSX
+            preprocessor = CSVPreprocessor()
+            generated_xlsx = preprocessor.process_csv_to_xlsx(
+                csv_path=csv_temp_path,
+                output_path=xlsx_temp_path,
+                template_name=template_name,
+                template_group=template_group,
+                manufacturer=manufacturer,
+                device=device,
+                model=model,
+                macros=macros,
+                tags=tags,
+                selected_items=selected_items,
+                selected_traps=selected_traps,
+                auto_suggest=True,
+                include_informational=include_informational
+            )
+
+            logger.info(f"CSV preprocessed to XLSX: {generated_xlsx}")
+
+            # Now process the generated XLSX like a regular upload
+            snmp_items_json_list, snmp_traps_json_list, template_info_json, discovery_rule_tables, trigger_overrides = \
+                MIBValidator.extract_from_excel(generated_xlsx)
+
+            # Create session ID
+            session_id = str(uuid.uuid4())
+
+            # Store session data
+            sessions[session_id] = {
+                'filename': f"{filename} (preprocessed)",
+                'original_filename': filename,
+                'snmp_items_json_list': snmp_items_json_list,
+                'snmp_traps_json_list': snmp_traps_json_list,
+                'template_info_json': template_info_json,
+                'discovery_rule_tables': discovery_rule_tables,
+                'trigger_overrides': trigger_overrides,
+                'timestamp': time.time(),
+                'source': 'csv'
+            }
+
+            # Collect MIB data
+            mib_data = []
+            for table_oid, table_entries in discovery_rule_tables.items():
+                mib_data.extend(table_entries)
+
+            # Calculate stats
+            stats = {
+                'total_entries': len(mib_data),
+                'tables_detected': len(discovery_rule_tables),
+                'items_count': len(snmp_items_json_list),
+                'traps_count': len(snmp_traps_json_list),
+                'trigger_overrides': len(trigger_overrides),
+                'source': 'csv_preprocessed'
+            }
+
+            # Prepare discovery rules summary
+            discovered_tables_summary = []
+            for table_oid, table_entries in discovery_rule_tables.items():
+                if table_entries:
+                    table_name = table_entries[0].get('Name', 'Unknown')
+                    discovered_tables_summary.append({
+                        'oid': table_oid,
+                        'name': table_name,
+                        'item_count': len(table_entries) - 2,
+                        'is_split': '_part' in table_oid
+                    })
+
+            response_data = {
+                'session_id': session_id,
+                'stats': stats,
+                'template_info': template_info_json,
+                'snmp_items_available': snmp_items_json_list,
+                'snmp_traps_available': snmp_traps_json_list,
+                'discovered_tables': discovered_tables_summary,
+                'source': 'csv'
+            }
+
+            logger.info(f"CSV processing complete. Session created: {session_id}")
+            return create_success_response(response_data, 'CSV file preprocessed and processed successfully')
+
+        except UnmatchedDataError as e:
+            return create_error_response(
+                'unmatched_data',
+                str(e),
+                details={'error': str(e)}
+            )
+        except ValueError as e:
+            return create_error_response('validation_error', str(e))
+        finally:
+            # Clean up temp files
+            if os.path.exists(csv_temp_path):
+                os.remove(csv_temp_path)
+            if 'xlsx_temp_path' in locals() and os.path.exists(xlsx_temp_path):
+                os.remove(xlsx_temp_path)
+
+    except Exception as e:
+        logger.error(f"Error processing CSV: {e}", exc_info=True)
+        return create_error_response('internal_error', f'Error: {str(e)}', status_code=500)
 
 # Serve React frontend (placed after all API routes to avoid conflicts)
 @app.route('/', defaults={'path': ''})
